@@ -40,7 +40,7 @@ dev:
 
 run:
 	-docker rm -f monitor 2>/dev/null || :
-	docker run --rm -d -p 0.0.0.0:80:6666 \
+	docker run -d -p 0.0.0.0:80:6666 \
             --name monitor --restart unless-stopped \
             -e MY_COUCHDB_ADDRESS=$(MY_COUCHDB_ADDRESS) \
             -e MY_COUCHDB_PORT=$(MY_COUCHDB_PORT) \
