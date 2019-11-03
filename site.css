@@ -1,0 +1,98 @@
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto",
+    "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans",
+    "Helvetica Neue", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-align: left;
+}
+
+@keyframes monitor-logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.monitor-logo {
+  animation: monitor-logo-spin infinite 16s linear;
+  height: calc(20px + 2vmin);
+  pointer-events: none;
+}
+
+.monitor-header {
+  background-color: #F8F8F8;
+  min-height: 7vh;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: left;
+  font-size: calc(10px + 1vmin);
+  color: gray;
+}
+
+.monitor-wan {
+  height: calc(20px + 2vmin);
+}
+
+
+.monitor-table {
+  font-size: calc(6px + 1vmin);
+  width: 100%;
+}
+
+.monitor-table th {
+  font-style: normal;
+  font-weight: bold;
+  background-color: #FCFCFC;
+  color: #007700;
+}
+
+.monitor-table td {
+  color: gray;
+}
+
+.monitor-p {
+  margin: 0.025% 0 0 0;
+  color: #666666;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New",
+    monospace;
+}
+
+.monitor-a:link {
+  color: #00CC00;
+}
+.monitor-a:visited {
+  color: #00CC00;
+}
+.monitor-a:hover {
+  color: #00FF00;
+  text-decoration: none;
+}
+.monitor-a:active {
+  color: #00FF00;
+  text-decoration: none;
+}
+
+.machine-ordinary {
+}
+
+.machine-static {
+  background-color: #CCFFFF;
+}
+
+.machine-missing {
+  background-color: #FFFFCC;
+}
+
+.machine-unknown {
+  background-color: #FFCCCC;
+}
+
