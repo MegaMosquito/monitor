@@ -31,7 +31,7 @@ dev:
 	-docker rm -f monitor 2>/dev/null || :
 	docker run -it -v `pwd`:/outside \
           -p 0.0.0.0:8000:6666 \
-          --name monitor --restart unless-stopped \
+          --name monitor \
           -e MY_COUCHDB_ADDRESS=$(MY_COUCHDB_ADDRESS) \
           -e MY_COUCHDB_PORT=$(MY_COUCHDB_PORT) \
           -e MY_COUCHDB_USER=$(MY_COUCHDB_USER) \
@@ -42,9 +42,9 @@ dev:
 
 run:
 	-docker rm -f monitor 2>/dev/null || :
-	docker run -d\
+	docker run -d --restart unless-stopped \
           -p 0.0.0.0:80:6666 \
-          --name monitor --restart unless-stopped \
+          --name monitor \
           -e MY_COUCHDB_ADDRESS=$(MY_COUCHDB_ADDRESS) \
           -e MY_COUCHDB_PORT=$(MY_COUCHDB_PORT) \
           -e MY_COUCHDB_USER=$(MY_COUCHDB_USER) \

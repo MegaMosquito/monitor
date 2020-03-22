@@ -37,6 +37,7 @@ REFRESH_WEB_MSEC = 10000
 
 # Globals for the cached data
 startup = datetime.datetime.now()
+last = startup
 last_wan = ""
 last_machines = ""
 last_updated = ""
@@ -103,6 +104,7 @@ if __name__ == '__main__':
       m_infra = "machine-infra"
       show("LAN monitor thread started!")
       while True:
+        fewest_seconds = 100 * 365 * 24 * 60 * 60 # (100 years)
         rows = {}
         db_hosts = db.get_all()
         for host in db_hosts:
@@ -116,6 +118,8 @@ if __name__ == '__main__':
           if ('last_seen' in h):
             last_seen = h['last_seen']
             last_seen_how_long_ago_seconds = db.seconds_since(last_seen)
+            if fewest_seconds > last_seen_how_long_ago_seconds:
+              fewest_seconds = last_seen_how_long_ago_seconds
             last = LanThread.format_seconds(last_seen_how_long_ago_seconds, False)
             first_seen_how_long_ago_seconds = last_seen_how_long_ago_seconds
             if 'first_seen' in h:
@@ -162,12 +166,13 @@ if __name__ == '__main__':
             '       </tr>\n' + \
             out + \
             '     </table>\n'
-          now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
           delta = datetime.datetime.now() - startup
-          uptime = LanThread.format_seconds(delta.total_seconds(), False)
+          up = LanThread.format_seconds(delta.total_seconds(), False)
+          fewest_str = LanThread.format_seconds(fewest_seconds, False)
+          updated = ' (last updated: ' + fewest_str + ' ago)'
           global last_updated
           last_updated = \
-            '   <p>&nbsp;' + str(now) + ' UTC (up: ' + str(uptime) + ')</p>\n'
+            '   <p>&nbsp;Up: ' + str(up) + updated + '</p>\n'
         show("LAN monitor thread is sleeping for " + str(REFRESH_LAN_MSEC / 1000.0) + " seconds...")
         time.sleep(REFRESH_LAN_MSEC / 1000.0)
 
@@ -261,7 +266,7 @@ if __name__ == '__main__':
       '     <table class="legend-table">\n' + \
       '       <tr class="legend-row"><td class="machine-unknown">Unrecognized MAC Address</td></tr>\n' + \
       '       <tr class="legend-row"><td class="machine-infra">Infrastructure Machine</td></tr>\n' + \
-      '       <tr class="legend-row"><td class="machine-static">Machine With Static Address</td></tr>\n' + \
+      '       <tr class="legend-row"><td class="machine-static">Statically Addressed</td></tr>\n' + \
       '       <tr class="legend-row"><td class="machine-ordinary">Other</td></tr>\n' + \
       '     </table>\n' + \
       '   </div>\n' + \
