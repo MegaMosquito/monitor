@@ -88,11 +88,24 @@ code {
   background-color: #CCFFFF;
 }
 
-.machine-missing {
+.machine-infra {
   background-color: #FFFFCC;
 }
 
 .machine-unknown {
   background-color: #FFCCCC;
+}
+
+.legend-table {
+  font-size: calc(4px + 1vmin);
+  border-collapse: collapse;
+}
+
+.legend-row {
+  border: 1px solid black;
+}
+
+.indent {
+  padding-left: 35px;
 }
 

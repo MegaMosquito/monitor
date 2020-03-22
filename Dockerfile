@@ -9,6 +9,7 @@ RUN pip install Flask
 RUN pip install couchdb
 
 # Copy over needed files
+WORKDIR /
 COPY site.css /
 COPY favicon.ico /
 COPY logo.png /
@@ -16,9 +17,10 @@ COPY yes.png /
 COPY no.png /
 
 # Copy over the source code
-COPY *.py /
 WORKDIR /
+COPY *.py /
 
 # Run the daemon
-CMD python monitor.py
+WORKDIR /
+CMD python monitor.py >/dev/null 2>&1
 

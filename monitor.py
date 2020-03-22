@@ -9,6 +9,7 @@ import json
 import os
 import subprocess
 import threading
+import datetime
 import time
 
 
@@ -29,11 +30,22 @@ FAVICON_ICO = '/favicon.ico'
 LOGO_PNG = '/logo.png'
 YES_PNG = '/yes.png'
 NO_PNG = '/no.png'
+REFRESH_LAN_MSEC = 10000
+REFRESH_WAN_MSEC = 30000
+REFRESH_WEB_MSEC = 10000
 
 
 # Globals for the cached data
-last_wan = "0"
-last_rows = ""
+startup = datetime.datetime.now()
+last_wan = ""
+last_machines = ""
+last_updated = ""
+
+
+# Output control (yeah, there are better ways to do this)
+def show(str):
+  # print(str)
+  pass
 
 
 # Get the Host and DB classes
@@ -60,43 +72,42 @@ if __name__ == '__main__':
   # Loop forever collecting from the couchdb (provided by netmon)
   class LanThread(threading.Thread):
     @classmethod
-    def nice_time(cls, secs):
-      secs = int(secs)
-      out = str(secs) + ' sec'
-      if (secs > 60):
-        min = int(secs / 60)
-        out = str(min) + ' min'
-        if (min > 60):
-          hr = int(min / 60)
-          out = str(hr) + ' hr'
-          if (hr > 24):
-            day = int(hr / 24)
-            if (1 == day):
-              out = str(day) + ' day'
-            else:
-              out = str(day) + ' days'
-      return out
-    @classmethod
     def numeric_ip(cls, k):
       b = k.split('.')
       return int(b[0]) << 24 + \
              int(b[1]) << 16 + \
              int(b[2]) << 8 + \
              int(b[3])
+    @classmethod
+    def format_seconds(cls, secs, brief=True):
+      out=[]
+      periods = [
+        ('day', 60*60*24),
+        ('hr',  60*60),
+        ('min', 60),
+        ('sec', 1)
+      ]
+      for period_name, period_seconds in periods:
+        if secs >= period_seconds:
+          period_value, secs = divmod(secs, period_seconds)
+          has_s = 's' if int(period_value) > 1 else ''
+          out.append("%d %s%s" % (int(period_value), period_name, has_s))
+      if brief:
+        return out[0]
+      else:
+        return ", ".join(out)
     def run(self):
       m_ordinary = "machine-ordinary"
       m_static = "machine-static"
       m_unknown = "machine-unknown"
-      m_missing = "machine-missing"
-      global last_rows
-      # print("\nLAN monitor thread started!")
+      m_infra = "machine-infra"
+      show("LAN monitor thread started!")
       while True:
-        ips = []
         rows = {}
         db_hosts = db.get_all()
         for host in db_hosts:
           h = db.get(host['key'])
-          # print(json.dumps(h))
+          # show(json.dumps(h))
           ip = ""
           if ('ip' in h) and ('' != h['ip']):
             ip = h['ip']
@@ -105,59 +116,81 @@ if __name__ == '__main__':
           if ('last_seen' in h):
             last_seen = h['last_seen']
             last_seen_how_long_ago_seconds = db.seconds_since(last_seen)
-            last = LanThread.nice_time(last_seen_how_long_ago_seconds)
+            last = LanThread.format_seconds(last_seen_how_long_ago_seconds, False)
             first_seen_how_long_ago_seconds = last_seen_how_long_ago_seconds
             if 'first_seen' in h:
               first_seen = h['first_seen']
               first_seen_how_long_ago_seconds = db.seconds_since(first_seen)
-              first = LanThread.nice_time(first_seen_how_long_ago_seconds)
+            first = LanThread.format_seconds(first_seen_how_long_ago_seconds)
           mac = h['mac']
           info = h['info']
-          # print("ip=" + str(ip))
           row_type = m_ordinary
           if (not h['known']):
             row_type = m_unknown
+          elif (h['infra']):
+            row_type = m_infra
           elif (h['static']):
-            row_type = m_static
-          elif (h['known'] and h['infra']):
             row_type = m_static
           if (("" != ip)) or (h['infra'] and ("" == ip)):
             ip_key = "256.256.256.256." + mac
             if ("" != ip):
               ip_key = ip
-            ips.append(ip_key)
-            rows[ip_key] = \
-              '     <tr class="' + row_type + '">\n' + \
-              '       <td>' + str(first) + '</td>\n' + \
-              '       <td>' + str(last) + '</td>\n' + \
-              '       <td>' + str(ip) + '</td>\n' + \
-              '       <td>' + str(mac) + '</td>\n' + \
-              '       <td>' + str(info) + '</td>\n' + \
-              '     </tr>\n' + \
-              ''
+            if (not (ip_key in rows)):
+              rows[ip_key] = \
+                '       <tr class="' + row_type + '">\n' + \
+                '         <td>' + str(first) + '</td>\n' + \
+                '         <td>' + str(last) + '</td>\n' + \
+                '         <td>' + str(ip) + '</td>\n' + \
+                '         <td>' + str(mac) + '</td>\n' + \
+                '         <td>' + str(info) + '</td>\n' + \
+                '       </tr>\n' + \
+                ''
         out = ""
-        ip_keys = sorted(ips, key=lambda k: LanThread.numeric_ip(k))
+        ip_keys = sorted(rows.keys(), key=lambda k: LanThread.numeric_ip(k))
         for ip_key in ip_keys:
           out += rows[ip_key]
         if ("" != out):
-          last_rows = out
-        # print(last_rows)
-        # print("\nSleeping for " + str(5) + " seconds...\n")
-        time.sleep(5)
+          global last_machines
+          last_machines = \
+            '     <table class="monitor-table">\n' + \
+            '       <tr>\n' + \
+            '         <th>First Seen</th>\n' + \
+            '         <th>Last Seen</th>\n' + \
+            '         <th>IPv4</th>\n' + \
+            '         <th>MAC</th>\n' + \
+            '         <th>Info</th>\n' + \
+            '       </tr>\n' + \
+            out + \
+            '     </table>\n'
+          now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+          delta = datetime.datetime.now() - startup
+          uptime = LanThread.format_seconds(delta.total_seconds(), False)
+          global last_updated
+          last_updated = \
+            '   <p>&nbsp;' + str(now) + ' UTC (up: ' + str(uptime) + ')</p>\n'
+        show("LAN monitor thread is sleeping for " + str(REFRESH_LAN_MSEC / 1000.0) + " seconds...")
+        time.sleep(REFRESH_LAN_MSEC / 1000.0)
 
   # Loop forever checking WAN connectivity
   class WanThread(threading.Thread):
     def run(self):
       global last_wan
-      # print("\nWAN monitor thread started!")
+      show("WAN monitor thread started!")
       WAN_COMMAND = 'curl -sS https://google.com 2>/dev/null | wc -l'
       while True:
         yes_no = str(subprocess.check_output(WAN_COMMAND, shell=True)).strip()
-        # print("\n\nWAN check = " + yes_no)
-        last_wan = (yes_no != "0")
-        # print(str(last_wan))
-        # print("\nSleeping for " + str(5) + " seconds...\n")
-        time.sleep(5)
+        # show("  WAN check = " + yes_no)
+        wan = '     WAN: &nbsp;<img src="/no.png" class="monitor-wan" alt="no" />\n'
+        if (yes_no != "0"):
+          wan = '     WAN: &nbsp; <img src="/yes.png" class="monitor-wan" alt="yes" />\n'
+        if wan != last_wan:
+          if (yes_no != "0"):
+            show("WAN is now connected.")
+          else:
+            show("WAN is now DISCONNECTED!")
+        last_wan = wan
+        show("WAN monitor thread is sleeping for " + str(REFRESH_WAN_MSEC / 1000.0) + " seconds...")
+        time.sleep(REFRESH_WAN_MSEC / 1000.0)
 
   @webapp.route("/site.css")
   def get_css():
@@ -179,15 +212,16 @@ if __name__ == '__main__':
   def get_no_png():
     return send_file(NO_PNG)
 
+  @webapp.route("/json")
+  def get_json():
+    j = {}
+    j['last_wan'] = last_wan
+    j['last_machines'] = last_machines
+    j['last_updated'] = last_updated
+    return (json.dumps(j) + '\n').encode('UTF-8')
+
   @webapp.route("/")
   def get_page():
-
-    wan = '     WAN: &nbsp;<img src="/no.png" class="monitor-wan" alt="no" />\n'
-    if (last_wan):
-      wan = '     WAN: &nbsp; <img src="/yes.png" class="monitor-wan" alt="yes" />\n'
-
-    rows = last_rows
-
     OUT = \
       '<!DOCTYPE html>\n' + \
       '<html lang=en>\n' + \
@@ -215,18 +249,51 @@ if __name__ == '__main__':
       '       </a>\n' + \
       '       &nbsp;&nbsp; &nbsp;&nbsp; &nbsp;&nbsp; &nbsp;&nbsp; \n' + \
       '     </p>\n' + \
-      wan + \
+      '     <div class="indent" id="d_wan">\n' + \
+      last_wan + \
+      '     </div>\n' + \
       '   </header>\n' + \
-      '   <table class="monitor-table">\n' + \
-      '     <tr>\n' + \
-      '       <th>First</th>\n' + \
-      '       <th>Last</th>\n' + \
-      '       <th>IPv4</th>\n' + \
-      '       <th>MAC</th>\n' + \
-      '       <th>Info</th>\n' + \
-      '     </tr>\n' + \
-      rows + \
-      '   </table>\n' + \
+      '   <div class="indent" id="d_machines">\n' + \
+      last_machines + \
+      '   </div>\n' + \
+      '   <p>&nbsp;Legend:</p>\n' + \
+      '   <div class="indent">\n' + \
+      '     <table class="legend-table">\n' + \
+      '       <tr class="legend-row"><td class="machine-unknown">Unrecognized MAC Address</td></tr>\n' + \
+      '       <tr class="legend-row"><td class="machine-infra">Infrastructure Machine</td></tr>\n' + \
+      '       <tr class="legend-row"><td class="machine-static">Machine With Static Address</td></tr>\n' + \
+      '       <tr class="legend-row"><td class="machine-ordinary">Other</td></tr>\n' + \
+      '     </table>\n' + \
+      '   </div>\n' + \
+      '   <br />\n' + \
+      '   <p>&nbsp;To manually scan (in ubuntu) use:</p>\n' + \
+      '   <pre>\n' + \
+      '     sudo apt update\n' + \
+      '     sudo apt install -y nmap\n' + \
+      '     sudo nmap -sP 10.10.10.0/24\n' + \
+      '   </pre>\n' + \
+      '   <p>&nbsp;Monitor status:</p>\n' + \
+      '   <div class="indent" id="d_updated">\n' + \
+      last_updated + \
+      '   </div>\n' + \
+      '   <script>\n' + \
+      '     function refresh(d_wan, d_machines, d_updated) {\n' + \
+      '       (async function startRefresh() {\n' + \
+      '         const response = await fetch("/json");\n' + \
+      '         const j = await response.json();\n' + \
+      '         d_wan.innerHTML = j.last_wan;\n' + \
+      '         d_machines.innerHTML = j.last_machines;\n' + \
+      '         d_updated.innerHTML = j.last_updated;\n' + \
+      '         setTimeout(startRefresh, ' + str(REFRESH_WEB_MSEC) + ');\n' + \
+      '       })();\n' + \
+      '     }\n' + \
+      '     window.onload = function() {\n' + \
+      '       var d_wan = document.getElementById("d_wan");\n' + \
+      '       var d_machines = document.getElementById("d_machines");\n' + \
+      '       var d_updated = document.getElementById("d_updated");\n' + \
+      '       refresh(d_wan, d_machines, d_updated);\n' + \
+      '     }\n' + \
+      '   </script>\n' + \
       ' </body>\n' + \
       '</html>\n'
     return (OUT)
