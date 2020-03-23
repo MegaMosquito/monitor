@@ -3,6 +3,7 @@
 # Some bits from https://github.com/MegaMosquito/netstuff/blob/master/Makefile
 LOCAL_DEFAULT_ROUTE     := $(shell sh -c "ip route | grep default")
 LOCAL_IP_ADDRESS        := $(word 7, $(LOCAL_DEFAULT_ROUTE))
+LOCAL_SUBNET_CIDR       := $(shell sh -c "echo $(wordlist 1, 3, $(subst ., ,$(LOCAL_IP_ADDRESS))) | sed 's/ /./g;s|.*|&.0/24|'")
 
 # CouchDB config
 MY_COUCHDB_ADDRESS        := $(LOCAL_IP_ADDRESS)
@@ -32,6 +33,7 @@ dev: build
 	docker run -it -v `pwd`:/outside \
           -p 0.0.0.0:8000:6666 \
           --name monitor \
+          -e MY_SUBNET_CIDR=$(LOCAL_SUBNET_CIDR) \
           -e MY_COUCHDB_ADDRESS=$(MY_COUCHDB_ADDRESS) \
           -e MY_COUCHDB_PORT=$(MY_COUCHDB_PORT) \
           -e MY_COUCHDB_USER=$(MY_COUCHDB_USER) \
@@ -45,6 +47,7 @@ run:
 	docker run -d --restart unless-stopped \
           -p 0.0.0.0:80:6666 \
           --name monitor \
+          -e MY_SUBNET_CIDR=$(LOCAL_SUBNET_CIDR) \
           -e MY_COUCHDB_ADDRESS=$(MY_COUCHDB_ADDRESS) \
           -e MY_COUCHDB_PORT=$(MY_COUCHDB_PORT) \
           -e MY_COUCHDB_USER=$(MY_COUCHDB_USER) \

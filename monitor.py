@@ -14,6 +14,7 @@ import time
 
 
 # Configure all of these "MY_" environment variables for your situation
+MY_SUBNET_CIDR            = os.environ['MY_SUBNET_CIDR']
 MY_COUCHDB_ADDRESS        = os.environ['MY_COUCHDB_ADDRESS']
 MY_COUCHDB_PORT           = int(os.environ['MY_COUCHDB_PORT'])
 MY_COUCHDB_USER           = os.environ['MY_COUCHDB_USER']
@@ -93,7 +94,7 @@ if __name__ == '__main__':
           period_value, secs = divmod(secs, period_seconds)
           has_s = 's' if int(period_value) > 1 else ''
           out.append("%d %s%s" % (int(period_value), period_name, has_s))
-      if brief:
+      if brief and 0 < len(out):
         return out[0]
       else:
         return ", ".join(out)
@@ -131,10 +132,10 @@ if __name__ == '__main__':
           row_type = m_ordinary
           if (not h['known']):
             row_type = m_unknown
+          elif (h['static'] and ("" != ip)):
+            row_type = m_static
           elif (h['infra']):
             row_type = m_infra
-          elif (h['static']):
-            row_type = m_static
           if (("" != ip)) or (h['infra'] and ("" == ip)):
             ip_key = "256.256.256.256." + mac
             if ("" != ip):
@@ -275,7 +276,7 @@ if __name__ == '__main__':
       '   <pre>\n' + \
       '     sudo apt update\n' + \
       '     sudo apt install -y nmap\n' + \
-      '     sudo nmap -sP 10.10.10.0/24\n' + \
+      '     sudo nmap -sP ' + MY_SUBNET_CIDR + '\n' + \
       '   </pre>\n' + \
       '   <p>&nbsp;Monitor status:</p>\n' + \
       '   <div class="indent" id="d_updated">\n' + \
