@@ -115,14 +115,14 @@ if __name__ == '__main__':
             ip = h['ip']
           first = ""
           last = ""
-          if ('last_seen' in h):
+          if ('last_seen' in h and h['last_seen']):
             last_seen = h['last_seen']
             last_seen_how_long_ago_seconds = db.seconds_since(last_seen)
             if fewest_seconds > last_seen_how_long_ago_seconds:
               fewest_seconds = last_seen_how_long_ago_seconds
             last = LanThread.format_seconds(last_seen_how_long_ago_seconds, False)
             first_seen_how_long_ago_seconds = last_seen_how_long_ago_seconds
-            if 'first_seen' in h:
+            if ('first_seen' in h and h['first_seen']):
               first_seen = h['first_seen']
               first_seen_how_long_ago_seconds = db.seconds_since(first_seen)
             first = LanThread.format_seconds(first_seen_how_long_ago_seconds)

@@ -27,7 +27,7 @@ clean:
 
 # ----------------------------------------------------------------------------
 
-dev:
+dev: build
 	-docker rm -f monitor 2>/dev/null || :
 	docker run -it -v `pwd`:/outside \
           -p 0.0.0.0:8000:6666 \
