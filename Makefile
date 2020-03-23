@@ -8,7 +8,7 @@ LOCAL_IP_ADDRESS        := $(word 7, $(LOCAL_DEFAULT_ROUTE))
 MY_COUCHDB_ADDRESS        := $(LOCAL_IP_ADDRESS)
 MY_COUCHDB_PORT           := 5984
 MY_COUCHDB_USER           := 'admin'
-MY_COUCHDB_PASSWORD       := 'Horiz0nP4ssw0rd'
+MY_COUCHDB_PASSWORD       := 'p4ssw0rd'
 MY_COUCHDB_MACHINE_DB     := 'lan_hosts'
 MY_COUCHDB_TIME_FORMAT    := '%Y-%m-%d %H:%M:%S'
 
