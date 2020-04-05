@@ -34,6 +34,7 @@ NO_PNG = '/no.png'
 REFRESH_LAN_MSEC = 10000
 REFRESH_WAN_MSEC = 30000
 REFRESH_WEB_MSEC = 10000
+LONG_AGO_SEC = 100 * 365 * 24 * 60 * 60  # (100 years worht of seconds)
 
 
 # Globals for the cached data
@@ -71,7 +72,7 @@ if __name__ == '__main__':
   webapp = Flask('lanmon')                             
   webapp.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
 
-  # Loop forever collecting from the couchdb (provided by netmon)
+  # Loop forever collecting from the couchdb (whose data is provided by netmon)
   class LanThread(threading.Thread):
     @classmethod
     def numeric_ip(cls, k):
@@ -89,6 +90,8 @@ if __name__ == '__main__':
         ('min', 60),
         ('sec', 1)
       ]
+      if 1 > secs:
+        return "0 secs"
       for period_name, period_seconds in periods:
         if secs >= period_seconds:
           period_value, secs = divmod(secs, period_seconds)
@@ -105,7 +108,7 @@ if __name__ == '__main__':
       m_infra = "machine-infra"
       show("LAN monitor thread started!")
       while True:
-        fewest_seconds = 100 * 365 * 24 * 60 * 60 # (100 years)
+        fewest_seconds = LONG_AGO_SEC
         rows = {}
         db_hosts = db.get_all()
         for host in db_hosts:
@@ -167,13 +170,19 @@ if __name__ == '__main__':
             '       </tr>\n' + \
             out + \
             '     </table>\n'
-          delta = datetime.datetime.now() - startup
-          up = LanThread.format_seconds(delta.total_seconds(), False)
+        delta = datetime.datetime.now() - startup
+        up = LanThread.format_seconds(delta.total_seconds(), False)
+        if 1 > fewest_seconds:
+          updated = ' (updated just now)'
+        elif LONG_AGO_SEC <= fewest_seconds:
+          updated = ' (not updated yet)'
+        else:
           fewest_str = LanThread.format_seconds(fewest_seconds, False)
+          show("f_s=%d, str=%s" % (fewest_seconds, fewest_str))
           updated = ' (last updated: ' + fewest_str + ' ago)'
-          global last_updated
-          last_updated = \
-            '   <p>&nbsp;Up: ' + str(up) + updated + '</p>\n'
+        global last_updated
+        last_updated = \
+          '   <p>&nbsp;Up: ' + str(up) + updated + '</p>\n'
         show("LAN monitor thread is sleeping for " + str(REFRESH_LAN_MSEC / 1000.0) + " seconds...")
         time.sleep(REFRESH_LAN_MSEC / 1000.0)
 
