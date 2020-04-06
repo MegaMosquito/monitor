@@ -294,11 +294,16 @@ if __name__ == '__main__':
       '   <script>\n' + \
       '     function refresh(d_wan, d_machines, d_updated) {\n' + \
       '       (async function startRefresh() {\n' + \
-      '         const response = await fetch("/json");\n' + \
-      '         const j = await response.json();\n' + \
-      '         d_wan.innerHTML = j.last_wan;\n' + \
-      '         d_machines.innerHTML = j.last_machines;\n' + \
-      '         d_updated.innerHTML = j.last_updated;\n' + \
+      '         try {\n' + \
+      '           const response = await fetch("/json");\n' + \
+      '           const j = await response.json();\n' + \
+      '           d_wan.innerHTML = j.last_wan;\n' + \
+      '           d_machines.innerHTML = j.last_machines;\n' + \
+      '           d_updated.innerHTML = j.last_updated;\n' + \
+      '         }\n' + \
+      '         catch(err) {\n' + \
+      '           d_updated.innerHTML = "<p> &nbsp; [server not responding]</p>";\n' + \
+      '         }\n' + \
       '         setTimeout(startRefresh, ' + str(REFRESH_WEB_MSEC) + ');\n' + \
       '       })();\n' + \
       '     }\n' + \
