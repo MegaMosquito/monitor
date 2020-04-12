@@ -31,9 +31,9 @@ FAVICON_ICO = '/favicon.ico'
 LOGO_PNG = '/logo.png'
 YES_PNG = '/yes.png'
 NO_PNG = '/no.png'
-REFRESH_LAN_MSEC = 10000
-REFRESH_WAN_MSEC = 30000
-REFRESH_WEB_MSEC = 10000
+REFRESH_LAN_MSEC = 1000
+REFRESH_WAN_MSEC = 5000
+REFRESH_WEB_MSEC = 750
 LONG_AGO_SEC = 100 * 365 * 24 * 60 * 60  # (100 years worht of seconds)
 
 
