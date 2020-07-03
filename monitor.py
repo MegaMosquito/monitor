@@ -235,6 +235,17 @@ if __name__ == '__main__':
     j['last_updated'] = last_updated
     return (json.dumps(j) + '\n').encode('UTF-8')
 
+  @webapp.route("/reboot")
+  def post_reboot():
+    # Before reboot, must sync all mounted filesystems
+    os.system('sh -c "echo s > /sysrq"')
+    # Then remount all mounted filesystems read-only so we can continue
+    os.system('sh -c "echo u > /sysrq"')
+    # Sleep, then force immediate reboot
+    # Note that "b" does not sync or unmount, hence the "s" & "u" commands above
+    os.system('sh -c "sleep 1 && echo b > /sysrq"')
+    return '{"rebooting":true}\n'
+
   @webapp.route("/")
   def get_page():
     OUT = \

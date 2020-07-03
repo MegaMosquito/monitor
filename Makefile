@@ -33,6 +33,7 @@ dev: build
 	docker run -it -v `pwd`:/outside \
           -p 0.0.0.0:8000:6666 \
           --name monitor \
+          -v /proc/sysrq-trigger:/sysrq \
           -e MY_SUBNET_CIDR=$(LOCAL_SUBNET_CIDR) \
           -e MY_COUCHDB_ADDRESS=$(MY_COUCHDB_ADDRESS) \
           -e MY_COUCHDB_PORT=$(MY_COUCHDB_PORT) \
@@ -47,6 +48,7 @@ run:
 	docker run -d --restart unless-stopped \
           -p 0.0.0.0:80:6666 \
           --name monitor \
+          -v /proc/sysrq-trigger:/sysrq \
           -e MY_SUBNET_CIDR=$(LOCAL_SUBNET_CIDR) \
           -e MY_COUCHDB_ADDRESS=$(MY_COUCHDB_ADDRESS) \
           -e MY_COUCHDB_PORT=$(MY_COUCHDB_PORT) \
