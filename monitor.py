@@ -135,10 +135,10 @@ if __name__ == '__main__':
           row_type = m_ordinary
           if (not h['known']):
             row_type = m_unknown
-          elif (h['static'] and ("" != ip)):
-            row_type = m_static
           elif (h['infra']):
             row_type = m_infra
+          elif (h['static'] and ("" != ip)):
+            row_type = m_static
           if (("" != ip)) or (h['infra'] and ("" == ip)):
             ip_key = "256.256.256.256." + mac
             if ("" != ip):
