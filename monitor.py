@@ -7,6 +7,7 @@
 
 import json
 import os
+import sys
 import subprocess
 import threading
 import datetime
@@ -34,7 +35,7 @@ NO_PNG = '/no.png'
 REFRESH_LAN_MSEC = 1000
 REFRESH_WAN_MSEC = 5000
 REFRESH_WEB_MSEC = 750
-LONG_AGO_SEC = 100 * 365 * 24 * 60 * 60  # (100 years worht of seconds)
+LONG_AGO_SEC = 100 * 365 * 24 * 60 * 60  # (100 years worth of seconds)
 
 
 # Globals for the cached data
@@ -47,7 +48,8 @@ last_updated = ""
 
 # Output control (yeah, there are better ways to do this)
 def show(str):
-  # print(str)
+  #print(str)
+  #sys.stdout.flush()
   pass
 
 
@@ -111,14 +113,30 @@ if __name__ == '__main__':
         fewest_seconds = LONG_AGO_SEC
         rows = {}
         db_hosts = db.get_all()
+        # Find the most recent arrival(s)
+        long_ago_sec = LONG_AGO_SEC
         for host in db_hosts:
           h = db.get(host['key'])
-          # show(json.dumps(h))
+          if ('last_seen' in h and h['last_seen']):
+            last_seen = h['last_seen']
+            last_seen_how_long_ago_seconds = db.seconds_since(last_seen)
+            first_seen_how_long_ago_seconds = last_seen_how_long_ago_seconds
+            if ('first_seen' in h and h['first_seen']):
+              first_seen = h['first_seen']
+              first_seen_how_long_ago_seconds = db.seconds_since(first_seen)
+            if first_seen_how_long_ago_seconds < long_ago_sec:
+              long_ago_sec = first_seen_how_long_ago_seconds
+        long_ago_sec += 10
+        show("Latest: " + str(long_ago_sec) + "seconds ago.")
+        for host in db_hosts:
+          h = db.get(host['key'])
+          show(json.dumps(h))
           ip = ""
           if ('ip' in h) and ('' != h['ip']):
             ip = h['ip']
           first = ""
           last = ""
+          latest = '&nbsp;'
           if ('last_seen' in h and h['last_seen']):
             last_seen = h['last_seen']
             last_seen_how_long_ago_seconds = db.seconds_since(last_seen)
@@ -129,6 +147,9 @@ if __name__ == '__main__':
             if ('first_seen' in h and h['first_seen']):
               first_seen = h['first_seen']
               first_seen_how_long_ago_seconds = db.seconds_since(first_seen)
+            if long_ago_sec > first_seen_how_long_ago_seconds:
+              # Use a "delta" Greek letter to indicate most recently seen
+              latest = '&#916;'
             first = LanThread.format_seconds(first_seen_how_long_ago_seconds)
           mac = h['mac']
           info = h['info']
@@ -145,12 +166,13 @@ if __name__ == '__main__':
               ip_key = ip
             if (not (ip_key in rows)):
               rows[ip_key] = \
-                '       <tr class="' + row_type + '">\n' + \
-                '         <td>' + str(first) + '</td>\n' + \
-                '         <td>' + str(last) + '</td>\n' + \
-                '         <td>' + str(ip) + '</td>\n' + \
-                '         <td>' + str(mac) + '</td>\n' + \
-                '         <td>' + str(info) + '</td>\n' + \
+                '       <tr>\n' + \
+                '         <td> ' + latest + ' </td>\n' + \
+                '         <td class="' + row_type + '">' + str(first) + ' ago</td>\n' + \
+                '         <td class="' + row_type + '">' + str(last) + '</td>\n' + \
+                '         <td class="' + row_type + '">' + str(ip) + '</td>\n' + \
+                '         <td class="' + row_type + '">' + str(mac) + '</td>\n' + \
+                '         <td class="' + row_type + '">' + str(info) + '</td>\n' + \
                 '       </tr>\n' + \
                 ''
         out = ""
@@ -162,6 +184,7 @@ if __name__ == '__main__':
           last_machines = \
             '     <table class="monitor-table">\n' + \
             '       <tr>\n' + \
+            '         <th> &nbsp; </th>\n' + \
             '         <th>First Seen</th>\n' + \
             '         <th>Last Seen</th>\n' + \
             '         <th>IPv4</th>\n' + \
@@ -292,10 +315,8 @@ if __name__ == '__main__':
       '     </table>\n' + \
       '   </div>\n' + \
       '   <br />\n' + \
-      '   <p>&nbsp;To manually scan (in ubuntu) use:</p>\n' + \
+      '   <p>&nbsp;To manually scan, install "nmap", then use:</p>\n' + \
       '   <pre>\n' + \
-      '     sudo apt update\n' + \
-      '     sudo apt install -y nmap\n' + \
       '     sudo nmap -sP ' + MY_SUBNET_CIDR + '\n' + \
       '   </pre>\n' + \
       '   <p>&nbsp;Monitor status:</p>\n' + \

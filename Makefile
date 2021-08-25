@@ -21,14 +21,17 @@ all: build run
 build:
 	docker build -t monitor -f ./Dockerfile .
 
-# Stop container if running, and remove the local container image
-clean:
+# Stop container if running
+stop:
 	-docker rm -f monitor 2>/dev/null || :
+
+# Remove the local container image (stopping is a prereq)
+clean: stop
 	@docker rmi monitor 2>/dev/null || :
 
 # ----------------------------------------------------------------------------
 
-dev: build
+dev: build stop
 	-docker rm -f monitor 2>/dev/null || :
 	docker run -it -v `pwd`:/outside \
           -p 0.0.0.0:8000:6666 \
@@ -43,7 +46,7 @@ dev: build
           -e MY_COUCHDB_TIME_FORMAT=$(MY_COUCHDB_TIME_FORMAT) \
           monitor /bin/sh
 
-run:
+run: stop
 	-docker rm -f monitor 2>/dev/null || :
 	docker run -d --restart unless-stopped \
           -p 0.0.0.0:80:6666 \
