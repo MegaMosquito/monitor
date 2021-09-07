@@ -81,7 +81,7 @@ code {
   text-decoration: none;
 }
 
-.machine-ordinary {
+.machine-other {
 }
 
 .machine-static {
@@ -96,7 +96,7 @@ code {
   background-color: #FFCCCC;
 }
 
-.machine-local-address {
+.machine-local {
   background-color: #EEEEEE;
 }
 

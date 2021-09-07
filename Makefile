@@ -44,7 +44,7 @@ dev: build stop
           -e MY_COUCHDB_PASSWORD=$(MY_COUCHDB_PASSWORD) \
           -e MY_COUCHDB_MACHINE_DB=$(MY_COUCHDB_MACHINE_DB) \
           -e MY_COUCHDB_TIME_FORMAT=$(MY_COUCHDB_TIME_FORMAT) \
-          monitor /bin/sh
+          monitor /bin/bash
 
 run: stop
 	-docker rm -f monitor 2>/dev/null || :

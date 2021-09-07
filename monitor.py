@@ -78,7 +78,7 @@ if __name__ == '__main__':
   # Loop forever collecting from the couchdb (whose data is provided by netmon)
   class LanThread(threading.Thread):
     @classmethod
-    def is_locally_adminitered_mac(cls, mac):
+    def is_locally_administered_mac(cls, mac):
       hex_str = mac[0:2]
       hex = int(hex_str, base=16)
       bit = (hex & 2) == 2
@@ -111,10 +111,10 @@ if __name__ == '__main__':
       else:
         return ", ".join(out)
     def run(self):
-      m_ordinary = "machine-ordinary"
+      m_other = "machine-other"
       m_static = "machine-static"
       m_unknown = "machine-unknown"
-      m_laa = "machine-local-address"
+      m_laa = "machine-local"
       m_infra = "machine-infra"
       show("LAN monitor thread started!")
       while True:
@@ -165,10 +165,10 @@ if __name__ == '__main__':
             first = LanThread.format_seconds(first_seen_how_long_ago_seconds)
           mac = h['mac']
           info = h['info']
-          row_type = m_ordinary
+          row_type = m_other
           if (not h['known']):
             row_type = m_unknown
-            if LanThread.is_locally_adminitered_mac(mac):
+            if LanThread.is_locally_administered_mac(mac):
               row_type = m_laa
           elif (h['infra']):
             row_type = m_infra
@@ -180,7 +180,7 @@ if __name__ == '__main__':
               ip_key = ip
             if (not (ip_key in rows)) and (not ignore):
               rows[ip_key] = \
-                '       <tr>\n' + \
+                '       <tr class="ROW-' + row_type + '">\n' + \
                 '         <td> ' + latest + ' </td>\n' + \
                 '         <td class="' + row_type + '">' + str(first) + '</td>\n' + \
                 '         <td class="' + row_type + '">' + str(last) + '</td>\n' + \
@@ -322,11 +322,11 @@ if __name__ == '__main__':
       '   <p>&nbsp;Legend:</p>\n' + \
       '   <div class="indent">\n' + \
       '     <table class="legend-table">\n' + \
-      '       <tr class="legend-row"><td class="machine-unknown">&nbsp;Unrecognized MAC Address&nbsp;</td></tr>\n' + \
-      '       <tr class="legend-row"><td class="machine-local-address">&nbsp;Locally Administered Address&nbsp;</td></tr>\n' + \
-      '       <tr class="legend-row"><td class="machine-infra">&nbsp;Infrastructure Machine&nbsp;</td></tr>\n' + \
-      '       <tr class="legend-row"><td class="machine-static">&nbsp;Statically Addressed&nbsp;</td></tr>\n' + \
-      '       <tr class="legend-row"><td class="machine-ordinary">&nbsp;Other&nbsp;</td></tr>\n' + \
+      '       <tr class="legend-row"><td><input type="checkbox" class="legend-checkbox" onclick="checkbox(this)" id="unknown"/></td><td class="machine-unknown">&nbsp;Unrecognized MAC Address&nbsp;</td></tr>\n' + \
+      '       <tr class="legend-row"><td><input type="checkbox" class="legend-checkbox" onclick="checkbox(this)" id="local"/></td><td class="machine-local">&nbsp;Locally Administered Address&nbsp;</td></tr>\n' + \
+      '       <tr class="legend-row"><td><input type="checkbox" class="legend-checkbox" onclick="checkbox(this)" id="infra"/></td><td class="machine-infra">&nbsp;Infrastructure Machine&nbsp;</td></tr>\n' + \
+      '       <tr class="legend-row"><td><input type="checkbox" class="legend-checkbox" onclick="checkbox(this)" id="static"/></td><td class="machine-static">&nbsp;Statically Addressed&nbsp;</td></tr>\n' + \
+      '       <tr class="legend-row"><td><input type="checkbox" class="legend-checkbox" onclick="checkbox(this)" id="other"/></td><td class="machine-other">&nbsp;Other&nbsp;</td></tr>\n' + \
       '     </table>\n' + \
       '   </div>\n' + \
       '   <br />\n' + \
@@ -339,7 +339,16 @@ if __name__ == '__main__':
       last_updated + \
       '   </div>\n' + \
       '   <script>\n' + \
-      '     function refresh(d_wan, d_machines, d_updated) {\n' + \
+      '     function checkbox(item) {\n' + \
+      '       let row_id = "ROW-machine-" + item.id;\n' + \
+      '       rows = document.getElementsByClassName(row_id);\n' + \
+      '       display = "none";\n' + \
+      '       if (item.checked) { display = null; }\n' + \
+      '       for (let row of rows) {\n' + \
+      '         row.style.display = display;\n' + \
+      '       }\n' + \
+      '     }\n' + \
+      '     function refresh(d_wan, d_machines, d_updated, d_legend) {\n' + \
       '       (async function startRefresh() {\n' + \
       '         try {\n' + \
       '           const response = await fetch("/json");\n' + \
@@ -347,6 +356,9 @@ if __name__ == '__main__':
       '           d_wan.innerHTML = j.last_wan;\n' + \
       '           d_machines.innerHTML = j.last_machines;\n' + \
       '           d_updated.innerHTML = j.last_updated;\n' + \
+      '           for (let item of d_legend) {\n' + \
+      '             checkbox(item);\n' + \
+      '           }\n' + \
       '         }\n' + \
       '         catch(err) {\n' + \
       '           d_updated.innerHTML = "<p> &nbsp; [server not responding]</p>";\n' + \
@@ -355,10 +367,16 @@ if __name__ == '__main__':
       '       })();\n' + \
       '     }\n' + \
       '     window.onload = function() {\n' + \
+      '       document.getElementById("unknown").checked = true;\n' + \
+      '       document.getElementById("local").checked = false;\n' + \
+      '       document.getElementById("infra").checked = true;\n' + \
+      '       document.getElementById("static").checked = false;\n' + \
+      '       document.getElementById("other").checked = false;\n' + \
       '       var d_wan = document.getElementById("d_wan");\n' + \
       '       var d_machines = document.getElementById("d_machines");\n' + \
       '       var d_updated = document.getElementById("d_updated");\n' + \
-      '       refresh(d_wan, d_machines, d_updated);\n' + \
+      '       var d_legend = document.getElementsByClassName("legend-checkbox");\n' + \
+      '       refresh(d_wan, d_machines, d_updated, d_legend);\n' + \
       '     }\n' + \
       '   </script>\n' + \
       ' </body>\n' + \
