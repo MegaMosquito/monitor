@@ -15,7 +15,7 @@ COPY yes.png /
 COPY no.png /
 
 # Convenience tools for development
-RUN apt update && apt install -y curl jq
+#RUN apt update && apt install -y curl jq
 
 # Copy over the source code
 WORKDIR /

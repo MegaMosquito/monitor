@@ -96,6 +96,10 @@ code {
   background-color: #FFCCCC;
 }
 
+.machine-local-address {
+  background-color: #EEEEEE;
+}
+
 .legend-table {
   font-size: calc(4px + 1vmin);
   border-collapse: collapse;

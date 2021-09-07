@@ -25,6 +25,7 @@ MY_COUCHDB_TIME_FORMAT    = os.environ['MY_COUCHDB_TIME_FORMAT']
 
 
 # Constants
+IGNORE_AFTER_SEC = 24 * 60 * 60  # (1 day worth of seconds)
 FLASK_BIND_ADDRESS = '0.0.0.0'
 FLASK_PORT = 6666
 CSS_FILE = '/site.css'
@@ -77,6 +78,12 @@ if __name__ == '__main__':
   # Loop forever collecting from the couchdb (whose data is provided by netmon)
   class LanThread(threading.Thread):
     @classmethod
+    def is_locally_adminitered_mac(cls, mac):
+      hex_str = mac[0:2]
+      hex = int(hex_str, base=16)
+      bit = (hex & 2) == 2
+      return bit
+    @classmethod
     def numeric_ip(cls, k):
       b = k.split('.')
       return int(b[0]) << 24 + \
@@ -107,6 +114,7 @@ if __name__ == '__main__':
       m_ordinary = "machine-ordinary"
       m_static = "machine-static"
       m_unknown = "machine-unknown"
+      m_laa = "machine-local-address"
       m_infra = "machine-infra"
       show("LAN monitor thread started!")
       while True:
@@ -136,10 +144,13 @@ if __name__ == '__main__':
             ip = h['ip']
           first = ""
           last = ""
+          ignore = False
           latest = '&nbsp;'
           if ('last_seen' in h and h['last_seen']):
             last_seen = h['last_seen']
             last_seen_how_long_ago_seconds = db.seconds_since(last_seen)
+            if last_seen_how_long_ago_seconds > IGNORE_AFTER_SEC:
+              ignore = True
             if fewest_seconds > last_seen_how_long_ago_seconds:
               fewest_seconds = last_seen_how_long_ago_seconds
             last = LanThread.format_seconds(last_seen_how_long_ago_seconds, False)
@@ -147,7 +158,8 @@ if __name__ == '__main__':
             if ('first_seen' in h and h['first_seen']):
               first_seen = h['first_seen']
               first_seen_how_long_ago_seconds = db.seconds_since(first_seen)
-            if long_ago_sec > first_seen_how_long_ago_seconds:
+            # Mark the most recently seen "unknown" host
+            if (not h['known']) and long_ago_sec > first_seen_how_long_ago_seconds:
               # Use a "delta" Greek letter to indicate most recently seen
               latest = '&#916;'
             first = LanThread.format_seconds(first_seen_how_long_ago_seconds)
@@ -156,6 +168,8 @@ if __name__ == '__main__':
           row_type = m_ordinary
           if (not h['known']):
             row_type = m_unknown
+            if LanThread.is_locally_adminitered_mac(mac):
+              row_type = m_laa
           elif (h['infra']):
             row_type = m_infra
           elif (h['static'] and ("" != ip)):
@@ -164,11 +178,11 @@ if __name__ == '__main__':
             ip_key = "256.256.256.256." + mac
             if ("" != ip):
               ip_key = ip
-            if (not (ip_key in rows)):
+            if (not (ip_key in rows)) and (not ignore):
               rows[ip_key] = \
                 '       <tr>\n' + \
                 '         <td> ' + latest + ' </td>\n' + \
-                '         <td class="' + row_type + '">' + str(first) + ' ago</td>\n' + \
+                '         <td class="' + row_type + '">' + str(first) + '</td>\n' + \
                 '         <td class="' + row_type + '">' + str(last) + '</td>\n' + \
                 '         <td class="' + row_type + '">' + str(ip) + '</td>\n' + \
                 '         <td class="' + row_type + '">' + str(mac) + '</td>\n' + \
@@ -308,10 +322,11 @@ if __name__ == '__main__':
       '   <p>&nbsp;Legend:</p>\n' + \
       '   <div class="indent">\n' + \
       '     <table class="legend-table">\n' + \
-      '       <tr class="legend-row"><td class="machine-unknown">Unrecognized MAC Address</td></tr>\n' + \
-      '       <tr class="legend-row"><td class="machine-infra">Infrastructure Machine</td></tr>\n' + \
-      '       <tr class="legend-row"><td class="machine-static">Statically Addressed</td></tr>\n' + \
-      '       <tr class="legend-row"><td class="machine-ordinary">Other</td></tr>\n' + \
+      '       <tr class="legend-row"><td class="machine-unknown">&nbsp;Unrecognized MAC Address&nbsp;</td></tr>\n' + \
+      '       <tr class="legend-row"><td class="machine-local-address">&nbsp;Locally Administered Address&nbsp;</td></tr>\n' + \
+      '       <tr class="legend-row"><td class="machine-infra">&nbsp;Infrastructure Machine&nbsp;</td></tr>\n' + \
+      '       <tr class="legend-row"><td class="machine-static">&nbsp;Statically Addressed&nbsp;</td></tr>\n' + \
+      '       <tr class="legend-row"><td class="machine-ordinary">&nbsp;Other&nbsp;</td></tr>\n' + \
       '     </table>\n' + \
       '   </div>\n' + \
       '   <br />\n' + \
