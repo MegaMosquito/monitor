@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang=en>
+ <head>
+   <title>DarlingEvil Network Monitor</title>
+   <meta charset="utf-8" />
+   <link rel="shortcut icon" href="/favicon.ico" />
+   <link rel="stylesheet" type="text/css" href="/site.css" />
+   <meta name="viewport" content="width=device-width, initial-scale=1" />
+   <meta name="theme-color" content="#000000" />
+ </head>
+ <body>
+   <header class="monitor-header">
+     &nbsp;&nbsp;
+     <img src="/logo.png" class="monitor-logo" alt="logo" />
+     <p class="monitor-p">
+       &nbsp;Network Monitor, from&nbsp;
+       <a class="monitor-a" href="https://darlingevil.com" target="_blank" rel="noopener noreferrer">
+         darlingevil.com
+       </a>
+       &nbsp;&nbsp; &nbsp;&nbsp; &nbsp;&nbsp; &nbsp;&nbsp; 
+     </p>
+     <div class="indent" id="d_wan">
+     </div>
+   </header>
+   <div class="indent" id="d_machines">
+   </div>
+   <p>&nbsp;Legend:</p>
+   <div class="indent">
+     <table class="legend-table">
+       <tr class="legend-row"><td><input type="checkbox" class="legend-checkbox" onclick="checkbox(this)" id="unknown"/></td><td class="machine-unknown">&nbsp;Unrecognized MAC Address&nbsp;</td></tr>
+       <tr class="legend-row"><td><input type="checkbox" class="legend-checkbox" onclick="checkbox(this)" id="local"/></td><td class="machine-local">&nbsp;Locally Administered Address&nbsp;</td></tr>
+       <tr class="legend-row"><td><input type="checkbox" class="legend-checkbox" onclick="checkbox(this)" id="infra"/></td><td class="machine-infra">&nbsp;Infrastructure Machine&nbsp;</td></tr>
+       <tr class="legend-row"><td><input type="checkbox" class="legend-checkbox" onclick="checkbox(this)" id="static"/></td><td class="machine-static">&nbsp;Statically Addressed&nbsp;</td></tr>
+       <tr class="legend-row"><td><input type="checkbox" class="legend-checkbox" onclick="checkbox(this)" id="other"/></td><td class="machine-other">&nbsp;Other&nbsp;</td></tr>
+     </table>
+   </div>
+   <br />
+   <p>&nbsp;To manually scan, install "nmap", then use:</p>
+   <div class="indent" id="d_nmap">
+      <p>&nbsp;sudo nmap -sP MY_SUBNET_CIDR</p>
+   </div>
+   <p>&nbsp;Monitor status:</p>
+   <div class="indent" id="d_updated">
+   </div>
+   <script>
+     function checkbox(item) {
+       // Get all the machine rows that correspond to this type
+       let row_id = "ROW-machine-" + item.id;
+       rows = document.getElementsByClassName(row_id);
+       display = "none"; // Set display="none" to hide rows
+       if (item.checked) { display = null; } // null ==> don't set display
+       // Setup display for all those rows according to the checkbox setting
+       for (let row of rows) {
+         row.style.display = display;
+       }
+     }
+     function refresh(d_wan, d_machines, d_updated, checkboxes) {
+       (async function startRefresh() {
+         try {
+           const response = await fetch("/json");
+           // Block to get the JSON response
+           const j = await response.json();
+           // Populate the divs with the new data
+           d_wan.innerHTML = j.last_wan;
+           d_machines.innerHTML = j.last_machines;
+           d_updated.innerHTML = j.last_updated;
+           // Reconfigure the machine displays based on the checkbox settings
+           for (let item of checkboxes) {
+             checkbox(item);
+           }
+         }
+         catch(err) {
+           d_updated.innerHTML = "<p> &nbsp; [server not responding]</p>";
+         }
+         setTimeout(startRefresh, REFRESH_WEB_MSEC);
+       })();
+     }
+     window.onload = function() {
+       // Initial selections (which types to show initially)
+       document.getElementById("unknown").checked = true;
+       document.getElementById("local").checked = false;
+       document.getElementById("infra").checked = true;
+       document.getElementById("static").checked = false;
+       document.getElementById("other").checked = false;
+       // Need to pass these DOM items into the function (can't get them inside)
+       var d_wan = document.getElementById("d_wan");
+       var d_machines = document.getElementById("d_machines");
+       var d_updated = document.getElementById("d_updated");
+       var checkboxes = document.getElementsByClassName("legend-checkbox");
+       // Kick off the refresh cycle once (it keeps going once started)
+       refresh(d_wan, d_machines, d_updated, checkboxes);
+     }
+   </script>
+ </body>
+</html>

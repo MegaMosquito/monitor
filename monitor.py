@@ -28,11 +28,12 @@ MY_COUCHDB_TIME_FORMAT    = os.environ['MY_COUCHDB_TIME_FORMAT']
 IGNORE_AFTER_SEC = 24 * 60 * 60  # (1 day worth of seconds)
 FLASK_BIND_ADDRESS = '0.0.0.0'
 FLASK_PORT = 6666
-CSS_FILE = '/site.css'
-FAVICON_ICO = '/favicon.ico'
-LOGO_PNG = '/logo.png'
-YES_PNG = '/yes.png'
-NO_PNG = '/no.png'
+HTML_FILE = './site.html'
+CSS_FILE = './site.css'
+FAVICON_ICO = './favicon.ico'
+LOGO_PNG = './logo.png'
+YES_PNG = './yes.png'
+NO_PNG = './no.png'
 REFRESH_LAN_MSEC = 1000
 REFRESH_WAN_MSEC = 5000
 REFRESH_WEB_MSEC = 750
@@ -223,7 +224,7 @@ if __name__ == '__main__':
         show("LAN monitor thread is sleeping for " + str(REFRESH_LAN_MSEC / 1000.0) + " seconds...")
         time.sleep(REFRESH_LAN_MSEC / 1000.0)
 
-  # Loop forever checking WAN connectivity
+  # Loop forever checking WAN connectivity and constructing the HTML div
   class WanThread(threading.Thread):
     def run(self):
       global last_wan
@@ -285,103 +286,8 @@ if __name__ == '__main__':
 
   @webapp.route("/")
   def get_page():
-    OUT = \
-      '<!DOCTYPE html>\n' + \
-      '<html lang=en>\n' + \
-      ' <head>\n' + \
-      '   <title>DarlingEvil Network Monitor</title>\n' + \
-      '   <meta charset="utf-8" />\n' + \
-      '   <link rel="shortcut icon" href="/favicon.ico" />\n' + \
-      '   <link rel="stylesheet" type="text/css" href="/site.css" />\n' + \
-      '   <meta name="viewport" content="width=device-width, initial-scale=1" />\n' + \
-      '   <meta name="theme-color" content="#000000" />\n' + \
-      ' </head>\n' + \
-      ' <body>\n' + \
-      '   <header class="monitor-header">\n' + \
-      '     &nbsp;&nbsp;\n' + \
-      '     <img src="/logo.png" class="monitor-logo" alt="logo" />\n' + \
-      '     <p class="monitor-p">\n' + \
-      '       &nbsp;Network Monitor, from&nbsp;\n' + \
-      '       <a\n' + \
-      '         class="monitor-a"\n' + \
-      '         href="https://darlingevil.com"\n' + \
-      '         target="_blank"\n' + \
-      '         rel="noopener noreferrer"\n' + \
-      '       >\n' + \
-      '         darlingevil.com\n' + \
-      '       </a>\n' + \
-      '       &nbsp;&nbsp; &nbsp;&nbsp; &nbsp;&nbsp; &nbsp;&nbsp; \n' + \
-      '     </p>\n' + \
-      '     <div class="indent" id="d_wan">\n' + \
-      last_wan + \
-      '     </div>\n' + \
-      '   </header>\n' + \
-      '   <div class="indent" id="d_machines">\n' + \
-      last_machines + \
-      '   </div>\n' + \
-      '   <p>&nbsp;Legend:</p>\n' + \
-      '   <div class="indent">\n' + \
-      '     <table class="legend-table">\n' + \
-      '       <tr class="legend-row"><td><input type="checkbox" class="legend-checkbox" onclick="checkbox(this)" id="unknown"/></td><td class="machine-unknown">&nbsp;Unrecognized MAC Address&nbsp;</td></tr>\n' + \
-      '       <tr class="legend-row"><td><input type="checkbox" class="legend-checkbox" onclick="checkbox(this)" id="local"/></td><td class="machine-local">&nbsp;Locally Administered Address&nbsp;</td></tr>\n' + \
-      '       <tr class="legend-row"><td><input type="checkbox" class="legend-checkbox" onclick="checkbox(this)" id="infra"/></td><td class="machine-infra">&nbsp;Infrastructure Machine&nbsp;</td></tr>\n' + \
-      '       <tr class="legend-row"><td><input type="checkbox" class="legend-checkbox" onclick="checkbox(this)" id="static"/></td><td class="machine-static">&nbsp;Statically Addressed&nbsp;</td></tr>\n' + \
-      '       <tr class="legend-row"><td><input type="checkbox" class="legend-checkbox" onclick="checkbox(this)" id="other"/></td><td class="machine-other">&nbsp;Other&nbsp;</td></tr>\n' + \
-      '     </table>\n' + \
-      '   </div>\n' + \
-      '   <br />\n' + \
-      '   <p>&nbsp;To manually scan, install "nmap", then use:</p>\n' + \
-      '   <pre>\n' + \
-      '     sudo nmap -sP ' + MY_SUBNET_CIDR + '\n' + \
-      '   </pre>\n' + \
-      '   <p>&nbsp;Monitor status:</p>\n' + \
-      '   <div class="indent" id="d_updated">\n' + \
-      last_updated + \
-      '   </div>\n' + \
-      '   <script>\n' + \
-      '     function checkbox(item) {\n' + \
-      '       let row_id = "ROW-machine-" + item.id;\n' + \
-      '       rows = document.getElementsByClassName(row_id);\n' + \
-      '       display = "none";\n' + \
-      '       if (item.checked) { display = null; }\n' + \
-      '       for (let row of rows) {\n' + \
-      '         row.style.display = display;\n' + \
-      '       }\n' + \
-      '     }\n' + \
-      '     function refresh(d_wan, d_machines, d_updated, d_legend) {\n' + \
-      '       (async function startRefresh() {\n' + \
-      '         try {\n' + \
-      '           const response = await fetch("/json");\n' + \
-      '           const j = await response.json();\n' + \
-      '           d_wan.innerHTML = j.last_wan;\n' + \
-      '           d_machines.innerHTML = j.last_machines;\n' + \
-      '           d_updated.innerHTML = j.last_updated;\n' + \
-      '           for (let item of d_legend) {\n' + \
-      '             checkbox(item);\n' + \
-      '           }\n' + \
-      '         }\n' + \
-      '         catch(err) {\n' + \
-      '           d_updated.innerHTML = "<p> &nbsp; [server not responding]</p>";\n' + \
-      '         }\n' + \
-      '         setTimeout(startRefresh, ' + str(REFRESH_WEB_MSEC) + ');\n' + \
-      '       })();\n' + \
-      '     }\n' + \
-      '     window.onload = function() {\n' + \
-      '       document.getElementById("unknown").checked = true;\n' + \
-      '       document.getElementById("local").checked = false;\n' + \
-      '       document.getElementById("infra").checked = true;\n' + \
-      '       document.getElementById("static").checked = false;\n' + \
-      '       document.getElementById("other").checked = false;\n' + \
-      '       var d_wan = document.getElementById("d_wan");\n' + \
-      '       var d_machines = document.getElementById("d_machines");\n' + \
-      '       var d_updated = document.getElementById("d_updated");\n' + \
-      '       var d_legend = document.getElementsByClassName("legend-checkbox");\n' + \
-      '       refresh(d_wan, d_machines, d_updated, d_legend);\n' + \
-      '     }\n' + \
-      '   </script>\n' + \
-      ' </body>\n' + \
-      '</html>\n'
-    return (OUT)
+    out = site_html.replace('MY_SUBNET_CIDR', MY_SUBNET_CIDR, 1)
+    return out.replace('REFRESH_WEB_MSEC', str(REFRESH_WEB_MSEC), 1)
 
   # Prevent caching everywhere
   @webapp.after_request
@@ -393,9 +299,13 @@ if __name__ == '__main__':
     return r
 
   # Main program (instantiates and starts polling thread and then web server)
+  print(MY_SUBNET_CIDR)
   lanmon = LanThread()
   lanmon.start()
   wanmon = WanThread()
   wanmon.start()
+  # Read the site HTML template
+  with open(HTML_FILE) as f:
+    site_html= ' '.join(f.readlines())
   webapp.run(host=FLASK_BIND_ADDRESS, port=FLASK_PORT)
 

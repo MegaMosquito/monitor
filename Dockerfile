@@ -8,6 +8,7 @@ RUN pip install couchdb
 
 # Copy over needed files
 WORKDIR /
+COPY site.html /
 COPY site.css /
 COPY favicon.ico /
 COPY logo.png /
