@@ -31,13 +31,8 @@
        <tr class="legend-row"><td><input type="checkbox" class="legend-checkbox" onclick="checkbox(this)" id="local"/></td><td class="machine-local">&nbsp;Locally Administered Address&nbsp;</td></tr>
        <tr class="legend-row"><td><input type="checkbox" class="legend-checkbox" onclick="checkbox(this)" id="infra"/></td><td class="machine-infra">&nbsp;Infrastructure Machine&nbsp;</td></tr>
        <tr class="legend-row"><td><input type="checkbox" class="legend-checkbox" onclick="checkbox(this)" id="static"/></td><td class="machine-static">&nbsp;Statically Addressed&nbsp;</td></tr>
-       <tr class="legend-row"><td><input type="checkbox" class="legend-checkbox" onclick="checkbox(this)" id="other"/></td><td class="machine-other">&nbsp;Other&nbsp;</td></tr>
+       <tr class="legend-row"><td><input type="checkbox" class="legend-checkbox" onclick="checkbox(this)" id="other"/></td><td class="machine-other">&nbsp;Other (known)&nbsp;</td></tr>
      </table>
-   </div>
-   <br />
-   <p>&nbsp;To manually scan, install "nmap", then use:</p>
-   <div class="indent" id="d_nmap">
-      <p>&nbsp;sudo nmap -sP MY_SUBNET_CIDR</p>
    </div>
    <p>&nbsp;Monitor status:</p>
    <div class="indent" id="d_updated">
@@ -79,7 +74,7 @@
        // Initial selections (which types to show initially)
        document.getElementById("unknown").checked = true;
        document.getElementById("local").checked = false;
-       document.getElementById("infra").checked = true;
+       document.getElementById("infra").checked = false;
        document.getElementById("static").checked = false;
        document.getElementById("other").checked = false;
        // Need to pass these DOM items into the function (can't get them inside)

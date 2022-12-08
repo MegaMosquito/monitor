@@ -1,63 +1,71 @@
-# A simple Web UI for my Network Monitor
+#
+# monitor  -- a simple web UI for my LAN monitor
+#
+# Written by Glen Darling (mosquito@darlingevil.com), December 2022.
+#
 
-# Some bits from https://github.com/MegaMosquito/netstuff/blob/master/Makefile
-LOCAL_DEFAULT_ROUTE     := $(shell sh -c "ip route | grep default")
-LOCAL_IP_ADDRESS        := $(word 7, $(LOCAL_DEFAULT_ROUTE))
-LOCAL_SUBNET_CIDR       := $(shell sh -c "echo $(wordlist 1, 3, $(subst ., ,$(LOCAL_IP_ADDRESS))) | sed 's/ /./g;s|.*|&.0/24|'")
+NAME         := monitor
+DOCKERHUB_ID := ibmosquito
+VERSION      := 1.0.0
 
-# CouchDB config
-MY_COUCHDB_ADDRESS        := $(LOCAL_IP_ADDRESS)
-MY_COUCHDB_PORT           := 5984
-MY_COUCHDB_USER           := 'admin'
-MY_COUCHDB_PASSWORD       := 'p4ssw0rd'
-MY_COUCHDB_MACHINE_DB     := 'lan_hosts'
-MY_COUCHDB_TIME_FORMAT    := '%Y-%m-%d %H:%M:%S'
+# This monitor uses https://github.com/MegaMosquito/lanscan and needs its URL:
+LOCAL_IPV4_ADDRESS := $(word 7, $(shell sh -c "ip route | grep default | sed 's/dhcp src //'"))
+LANSCAN_URL        := http://$(LOCAL_IPV4_ADDRESS):8003/lanscan/json
 
-# ----------------------------------------------------------------------------
+# Optionally specify the DHCP range used in your LAN, or just set these to 0
+DHCP_RANGE_START := 100
+DHCP_RANGE_END   := 199
 
-all: build run
+# Running `make` with no target builds and runs this as a restarting daemon
+default: build run
 
-# Build the docker container
+# Build the container and tag it
 build:
-	docker build -t monitor -f ./Dockerfile .
+	docker build -t $(DOCKERHUB_ID)/$(NAME):$(VERSION) .
 
-# Stop container if running
-stop:
-	-docker rm -f monitor 2>/dev/null || :
+# Running `make dev` will setup a working environment, just the way I like it.
+# On entry to the container's bash shell, run `cd /outside` to work here.
+dev: stop build
+	docker run -it --volume `pwd`:/outside \
+          --volume /proc/sysrq-trigger:/sysrq \
+	  --name $(NAME) \
+          -p 0.0.0.0:80:80 \
+          -e LANSCAN_URL=$(LANSCAN_URL) \
+          -e DHCP_RANGE_START=$(DHCP_RANGE_START) \
+          -e DHCP_RANGE_END=$(DHCP_RANGE_END) \
+	  $(DOCKERHUB_ID)/$(NAME):$(VERSION) /bin/bash
 
-# Remove the local container image (stopping is a prereq)
-clean: stop
-	@docker rmi monitor 2>/dev/null || :
-
-# ----------------------------------------------------------------------------
-
-dev: build stop
-	-docker rm -f monitor 2>/dev/null || :
-	docker run -it -v `pwd`:/outside \
-          -p 0.0.0.0:8000:6666 \
-          --name monitor \
-          -v /proc/sysrq-trigger:/sysrq \
-          -e MY_SUBNET_CIDR=$(LOCAL_SUBNET_CIDR) \
-          -e MY_COUCHDB_ADDRESS=$(MY_COUCHDB_ADDRESS) \
-          -e MY_COUCHDB_PORT=$(MY_COUCHDB_PORT) \
-          -e MY_COUCHDB_USER=$(MY_COUCHDB_USER) \
-          -e MY_COUCHDB_PASSWORD=$(MY_COUCHDB_PASSWORD) \
-          -e MY_COUCHDB_MACHINE_DB=$(MY_COUCHDB_MACHINE_DB) \
-          -e MY_COUCHDB_TIME_FORMAT=$(MY_COUCHDB_TIME_FORMAT) \
-          monitor /bin/bash
-
+# Run the container as a daemon (build not forecd here, so build it first)
 run: stop
-	-docker rm -f monitor 2>/dev/null || :
 	docker run -d --restart unless-stopped \
-          -p 0.0.0.0:80:6666 \
-          --name monitor \
-          -v /proc/sysrq-trigger:/sysrq \
-          -e MY_SUBNET_CIDR=$(LOCAL_SUBNET_CIDR) \
-          -e MY_COUCHDB_ADDRESS=$(MY_COUCHDB_ADDRESS) \
-          -e MY_COUCHDB_PORT=$(MY_COUCHDB_PORT) \
-          -e MY_COUCHDB_USER=$(MY_COUCHDB_USER) \
-          -e MY_COUCHDB_PASSWORD=$(MY_COUCHDB_PASSWORD) \
-          -e MY_COUCHDB_MACHINE_DB=$(MY_COUCHDB_MACHINE_DB) \
-          -e MY_COUCHDB_TIME_FORMAT=$(MY_COUCHDB_TIME_FORMAT) \
-          monitor
+          --volume /proc/sysrq-trigger:/sysrq \
+	  --name $(NAME) \
+          -p 0.0.0.0:80:80 \
+          -e LANSCAN_URL=$(LANSCAN_URL) \
+          -e DHCP_RANGE_START=$(DHCP_RANGE_START) \
+          -e DHCP_RANGE_END=$(DHCP_RANGE_END) \
+	  $(DOCKERHUB_ID)/$(NAME):$(VERSION)
+
+# Test the service by retrieving the web page (a browser is better for this)
+test:
+	@curl -s localhost:80/
+
+# Enter the context of the daemon container
+exec:
+	@docker exec -it ${NAME} /bin/sh
+
+# Push the conatiner to DockerHub (you need to `docker login` first of course)
+push:
+	docker push $(DOCKERHUB_ID)/$(NAME):$(VERSION) 
+
+# Stop the daemon container
+stop:
+	@docker rm -f ${NAME} >/dev/null 2>&1 || :
+
+# Stop the daemon container, and cleanup
+clean: stop
+	@docker rmi -f $(DOCKERHUB_ID)/$(NAME):$(VERSION) >/dev/null 2>&1 || :
+
+# Declare all of these non-file-system targets as .PHONY
+.PHONY: default build dev run test exec push stop clean
 
