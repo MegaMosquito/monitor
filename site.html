@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+
 <html lang=en>
  <head>
    <title>DarlingEvil Network Monitor</title>
@@ -21,6 +22,12 @@
      </p>
      <div class="indent" id="d_wan">
      </div>
+     <div class="indent" id="d_scanner_lan">
+     </div>
+     <div class="indent" id="d_scanner_ports">
+     </div>
+     <div class="indent" id="d_mon">
+     </div>
    </header>
    <div class="indent" id="d_machines">
    </div>
@@ -28,14 +35,20 @@
    <div class="indent">
      <table class="legend-table">
        <tr class="legend-row"><td><input type="checkbox" class="legend-checkbox" onclick="checkbox(this)" id="unknown"/></td><td class="machine-unknown">&nbsp;Unrecognized MAC Address&nbsp;</td></tr>
-       <tr class="legend-row"><td><input type="checkbox" class="legend-checkbox" onclick="checkbox(this)" id="local"/></td><td class="machine-local">&nbsp;Locally Administered Address&nbsp;</td></tr>
        <tr class="legend-row"><td><input type="checkbox" class="legend-checkbox" onclick="checkbox(this)" id="infra"/></td><td class="machine-infra">&nbsp;Infrastructure Machine&nbsp;</td></tr>
-       <tr class="legend-row"><td><input type="checkbox" class="legend-checkbox" onclick="checkbox(this)" id="static"/></td><td class="machine-static">&nbsp;Statically Addressed&nbsp;</td></tr>
+       <tr class="legend-row"><td><input type="checkbox" class="legend-checkbox" onclick="checkbox(this)" id="static"/></td><td class="machine-static">&nbsp;Static (non-infra)&nbsp;</td></tr>
        <tr class="legend-row"><td><input type="checkbox" class="legend-checkbox" onclick="checkbox(this)" id="other"/></td><td class="machine-other">&nbsp;Other (known)&nbsp;</td></tr>
+       <tr class="legend-row"><td><input type="checkbox" class="legend-checkbox" onclick="checkbox(this)" id="local"/></td><td class="machine-local">&nbsp;Locally Administered Address&nbsp;</td></tr>
      </table>
    </div>
    <p>&nbsp;Monitor status:</p>
    <div class="indent" id="d_updated">
+   </div>
+   <p>&nbsp;Source code, etc.:</p>
+   <div class="indent">
+     <p>This monitor: <a href="https://github.com/MegaMosquito/monitor" target="_blank" rel="noopener noreferrer">https://github.com/MegaMosquito/monitor</a></p>
+     <p>The LAN scanner it uses: <a href="https://github.com/MegaMosquito/lanscan" target="_blank" rel="noopener noreferrer">https://github.com/MegaMosquito/lanscan</a></p>
+     <p>The port scanner it also uses: <a href="https://github.com/MegaMosquito/portscan" target="_blank" rel="noopener noreferrer">https://github.com/MegaMosquito/portscan</a></p>
    </div>
    <script>
      function checkbox(item) {
@@ -57,15 +70,19 @@
            const j = await response.json();
            // Populate the divs with the new data
            d_wan.innerHTML = j.last_wan;
+           d_scanner_lan.innerHTML = j.last_lan;
+           d_scanner_ports.innerHTML = j.last_ports;
            d_machines.innerHTML = j.last_machines;
            d_updated.innerHTML = j.last_updated;
            // Reconfigure the machine displays based on the checkbox settings
            for (let item of checkboxes) {
              checkbox(item);
            }
+           d_mon.innerHTML = '     Monitor: &nbsp; <img src="/yes.png" class="monitor-wan" alt="yes" />\n';
          }
          catch(err) {
            d_updated.innerHTML = "<p> &nbsp; [server not responding]</p>";
+           d_mon.innerHTML = '     Monitor: &nbsp;(server offline)';
          }
          setTimeout(startRefresh, REFRESH_WEB_MSEC);
        })();

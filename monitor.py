@@ -12,6 +12,7 @@
 import json
 import os
 import sys
+import random
 import subprocess
 import threading
 import datetime
@@ -35,19 +36,20 @@ def get_from_env(v, d):
     return os.environ[v]
   else:
     return d
-DHCP_RANGE_START = get_from_env('DHCP_RANGE_START', '0')
-DHCP_RANGE_END   = get_from_env('DHCP_RANGE_END', '0')
-LANSCAN_URL      = get_from_env('LANSCAN_URL', '')
+MY_CONTAINER_BIND_PORT   = int(get_from_env('MY_CONTAINER_BIND_PORT', '80'))
+MY_LANSCAN_URL           = get_from_env('MY_LANSCAN_URL', '')
+MY_PORTSCAN_URL_BASE     = get_from_env('MY_PORTSCAN_URL_BASE', '')
+MY_DHCP_RANGE_START      = get_from_env('MY_DHCP_RANGE_START', '0')
+MY_DHCP_RANGE_END        = get_from_env('MY_DHCP_RANGE_END', '0')
 
 
 # Configuration constants
-REST_API_BIND_ADDRESS = '0.0.0.0'
-REST_API_BIND_PORT = 80
-DISCARD_AFTER_SEC = 24 * 60 * 60  # (1 day worth of seconds)
-REFRESH_LANSCAN_MSEC = 60000      # Get LAN scan results only once per minute
-REFRESH_WAN_MSEC = 60000          # Perform WAN scan only once per minute
-REFRESH_WEB_MSEC = 10000          # Have web page call back here every 10 sec
-LONG_AGO_SEC = 100 * 365 * 24 * 60 * 60  # (100 years worth of seconds)
+DISCARD_AFTER_SEC = 24*60*60     # (1 day worth of seconds)
+REFRESH_LANSCAN_MSEC = 10000     # LAN scan request frequency in milliseconds
+REFRESH_PORTSCAN_MSEC = 100000   # Port scan request frequency in msec
+REFRESH_WAN_MSEC = 60000         # WAN scan frequency in msec
+REFRESH_WEB_MSEC = 5000          # Web page call back frquency in msec
+LONG_AGO_SEC = 100*365*24*60*60  # (100 years worth of seconds)
 HTML_FILE = './site.html'
 CSS_FILE = './site.css'
 FAVICON_ICO = './favicon.ico'
@@ -70,10 +72,44 @@ startup_time = datetime.datetime.now()
 last_update_time = startup_time
 # Cached WAN status HTML
 last_wan_html = ''
+# Cached LAN scanner status HTML
+last_lan_html = ''
+# Cached port scanner status HTML
+last_ports_html = ''
 # Cached LAN scanning status HTML
 last_machines_html = ''
 # Cached timing info HTML
 last_updated_html = ''
+
+
+# Check port scanner for info on this node then add any to the 'ports' field
+def add_ports (db, mac):
+  global last_ports_html
+  try:
+    url = MY_PORTSCAN_URL_BASE + '/' + mac + '/json'
+    #debug(f'Requesting: "{url}".')
+    port_info = requests.get(url, verify=False, timeout=10)
+    #debug(f'Received: "{port_info.text.strip()}".')
+    port_info_json = port_info.json()
+    p = '     Portscan: &nbsp; <img src="/yes.png" class="monitor-wan" alt="yes" />\n'
+    if p != last_ports_html:
+      debug("Port scanner is now responding.")
+    if 'ports' in port_info_json:
+      if 0 == len(port_info_json['ports']):
+        db[mac]['ports'] = '(none open)'
+      else:
+        ports = ','.join(list(map(str,port_info_json['ports'])))
+        db[mac]['ports'] = '[' + ports + ']'
+    else:
+      db[mac]['ports'] = '???'
+    out = db[mac]['ports']
+    #debug(f'Port string: "{out}".')
+  except:
+    db[mac]['ports'] = '???'
+    p = '     Portscan: &nbsp;<img src="/no.png" class="monitor-wan" alt="no" />\n'
+    if p != last_ports_html:
+      debug("Port scanner is NOT responding!")
+  last_ports_html = p
 
 
 # Code for the thread that invokes the lanscan API to get snapshots of the LAN
@@ -128,12 +164,25 @@ class LanThread(threading.Thread):
 
   def run(self):
 
+    global last_lan_html
     db = {}
     debug("LAN monitor thread started!")
     while True:
 
-      snapshot = requests.get(LANSCAN_URL, verify=False, timeout=2.50)
-      snapshot_json = snapshot.json()
+      try:
+        snapshot = requests.get(MY_LANSCAN_URL, verify=False, timeout=10)
+        snapshot_json = snapshot.json()
+        lan = '     LANscan: &nbsp; <img src="/yes.png" class="monitor-wan" alt="yes" />\n'
+        if lan != last_lan_html:
+          debug("LANscan scanner is now responding.")
+      except:
+        snapshot = ''
+        snapshot_json = {}
+        lan = '     LAN: &nbsp;<img src="/no.png" class="monitor-wan" alt="no" />\n'
+        if lan != last_lan_html:
+          debug("LAN scanner is NOT responding!")
+      last_lan_html = lan
+
       if 'scan' in snapshot_json:
 
         # Note the time of this scan
@@ -190,6 +239,7 @@ class LanThread(threading.Thread):
           (most_recent_mac, most_recent_seconds))
 
         # Discard any old entries that have not been seen for a long time
+        global portscan_targets
         for mac in db.keys():
           node = db[mac]
           last_seen = node['last_seen']
@@ -197,6 +247,8 @@ class LanThread(threading.Thread):
           if last_seen_how_long_ago_seconds > DISCARD_AFTER_SEC:
             debug('INFO: Discarding node with mac %s from the database.' % mac)
             del db[mac]
+          else:
+            add_ports(db, mac)
 
         # Now generate the LAN scan portion of the web page
         rows = {}
@@ -226,10 +278,13 @@ class LanThread(threading.Thread):
 
           # Is a static pool defined, and if so, is host in the static pool?
           static = False
-          if 0 != int(DHCP_RANGE_START):
+          if 0 != int(MY_DHCP_RANGE_START):
             n = LanThread.numeric_last_octet(ip)
-            static = ((n < int(DHCP_RANGE_START)) or (n > int(DHCP_RANGE_END)))
+            static = ((n < int(MY_DHCP_RANGE_START)) or (n > int(MY_DHCP_RANGE_END)))
             #debug("%s -> %d -> %s" % (ip, n, str(static)))
+
+          # Is there any port info for this node?
+          port_html = node['ports']
 
           # Compute the type of this node's row (which determines its color)
           row_type = LanThread.m_other
@@ -248,6 +303,7 @@ class LanThread(threading.Thread):
             '         <td class="' + row_type + '">' + last + '</td>\n' + \
             '         <td class="' + row_type + '">' + ip + '</td>\n' + \
             '         <td class="' + row_type + '">' + mac + '</td>\n' + \
+            '         <td class="' + row_type + '">' + port_html + '</td>\n' + \
             '         <td class="' + row_type + '">' + info + '</td>\n' + \
             '       </tr>\n' + \
             ''
@@ -267,6 +323,7 @@ class LanThread(threading.Thread):
           '         <th>Last Seen</th>\n' + \
           '         <th>IPv4</th>\n' + \
           '         <th>MAC</th>\n' + \
+          '         <th>Ports</th>\n' + \
           '         <th>Info</th>\n' + \
           '       </tr>\n' + \
           out + \
@@ -300,6 +357,7 @@ class LanThread(threading.Thread):
         debug("LAN monitor thread is sleeping for " + str(REFRESH_LANSCAN_MSEC / 1000.0) + " seconds...")
         time.sleep(REFRESH_LANSCAN_MSEC / 1000.0)
 
+
 # Loop forever checking WAN connectivity and constructing the HTML div
 class WanThread(threading.Thread):
   def run(self):
@@ -320,6 +378,7 @@ class WanThread(threading.Thread):
       last_wan_html = wan
       debug("WAN monitor thread is sleeping for " + str(REFRESH_WAN_MSEC / 1000.0) + " seconds...")
       time.sleep(REFRESH_WAN_MSEC / 1000.0)
+
 
 # Must define the webapp variable before the annotations below
 webapp = Flask('lanmon')                             
@@ -349,6 +408,8 @@ def get_no_png():
 def get_json():
   j = {}
   j['last_wan'] = last_wan_html
+  j['last_lan'] = last_lan_html
+  j['last_ports'] = last_ports_html
   j['last_machines'] = last_machines_html
   j['last_updated'] = last_updated_html
   return (json.dumps(j) + '\n').encode('UTF-8')
@@ -378,6 +439,7 @@ def add_header(r):
   r.headers['Cache-Control'] = 'public, max-age=0'
   return r
 
+
 # Main program (instantiates and starts polling thread and then web server)
 if __name__ == '__main__':
 
@@ -403,7 +465,7 @@ if __name__ == '__main__':
   debug('Starting the REST API server thread...')
   threading.Thread(target=lambda: serve(
     webapp,
-    host=REST_API_BIND_ADDRESS,
-    port=REST_API_BIND_PORT)).start(),
+    host='0.0.0.0',
+    port=MY_CONTAINER_BIND_PORT)).start(),
 
 

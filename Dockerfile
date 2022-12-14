@@ -6,7 +6,7 @@
 FROM ubuntu:latest
 
 # Install required stuff
-RUN apt update && apt install -y python3 python3-pip
+RUN apt update && apt install -y python3 python3-pip avahi-utils
 RUN pip3 install flask waitress requests
 
 # Setup a workspace directory
