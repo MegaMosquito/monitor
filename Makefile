@@ -52,7 +52,7 @@ dev: stop build
           -e MY_PORTSCAN_URL_BASE=$(MY_PORTSCAN_URL_BASE) \
           -e MY_DHCP_RANGE_START=$(MY_DHCP_RANGE_START) \
           -e MY_DHCP_RANGE_END=$(MY_DHCP_RANGE_END) \
-	  $(DOCKERHUB_ID)/$(NAME):$(VERSION) /bin/bash
+	  $(DOCKERHUB_ID)/$(NAME):$(VERSION) /bin/sh
 
 # Run the container as a daemon (build not forecd here, so build it first)
 run: stop
@@ -71,7 +71,7 @@ run: stop
 
 # Test the service by retrieving the web page (a browser is better for this)
 test:
-	@curl -s localhost:$(HOST_BIND_PORT)/
+	@curl -s localhost:$(MY_HOST_BIND_PORT)/
 
 # Enter the context of the daemon container
 exec:
