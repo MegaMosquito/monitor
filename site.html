@@ -65,7 +65,7 @@
      function refresh(d_wan, d_machines, d_updated, checkboxes) {
        (async function startRefresh() {
          try {
-           const response = await fetch("/json");
+           const response = await fetch("/jsonhtml");
            // Block to get the JSON response
            const j = await response.json();
            // Populate the divs with the new data
@@ -91,7 +91,7 @@
        // Initial selections (which types to show initially)
        document.getElementById("unknown").checked = true;
        document.getElementById("local").checked = false;
-       document.getElementById("infra").checked = false;
+       document.getElementById("infra").checked = true;
        document.getElementById("static").checked = false;
        document.getElementById("other").checked = false;
        // Need to pass these DOM items into the function (can't get them inside)

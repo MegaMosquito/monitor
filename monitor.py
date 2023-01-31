@@ -70,20 +70,27 @@ known_hosts = {}
 # Saved time markers
 startup_time = datetime.datetime.now()
 last_update_time = startup_time
-# Cached WAN status HTML
+# Cached WAN status (JSON and HTML versions)
+last_wan_json = False
 last_wan_html = ''
-# Cached LAN scanner status HTML
+# Cached LAN scanner status (JSON and HTML versions)
+last_lan_json = False
 last_lan_html = ''
-# Cached port scanner status HTML
+# Cached port scanner status (JSON and HTML versions)
+last_ports_json = False
 last_ports_html = ''
-# Cached LAN scanning status HTML
+# Cached LAN scanning status (JSON and HTML versions)
+last_machines_json = {}
 last_machines_html = ''
-# Cached timing info HTML
+last_count_json = 0
+# Cached timing info (JSON and HTML versions)
+last_updated_json = {}
 last_updated_html = ''
 
 
 # Check port scanner for info on this node then add any to the 'ports' field
 def add_ports (db, mac):
+  global last_ports_json
   global last_ports_html
   try:
     url = MY_PORTSCAN_URL_BASE + '/' + mac + '/json'
@@ -104,7 +111,9 @@ def add_ports (db, mac):
       db[mac]['ports'] = '???'
     out = db[mac]['ports']
     #debug(f'Port string: "{out}".')
+    last_ports_json = True
   except:
+    last_ports_json = False
     db[mac]['ports'] = '???'
     p = '     Portscan: &nbsp;<img src="/no.png" class="monitor-wan" alt="no" />\n'
     if p != last_ports_html:
@@ -115,11 +124,12 @@ def add_ports (db, mac):
 # Code for the thread that invokes the lanscan API to get snapshots of the LAN
 class LanThread(threading.Thread):
 
-  m_other = "machine-other"
-  m_static = "machine-static"
-  m_unknown = "machine-unknown"
-  m_laa = "machine-local"
-  m_infra = "machine-infra"
+  m_prefix = "machine-"
+  m_other = m_prefix + "other"
+  m_static = m_prefix + "static"
+  m_unknown = m_prefix + "unknown"
+  m_laa = m_prefix + "local"
+  m_infra = m_prefix + "infra"
 
   @classmethod
   def is_locally_administered_mac(cls, mac):
@@ -164,6 +174,7 @@ class LanThread(threading.Thread):
 
   def run(self):
 
+    global last_lan_json
     global last_lan_html
     db = {}
     debug("LAN monitor thread started!")
@@ -175,7 +186,9 @@ class LanThread(threading.Thread):
         lan = '     LANscan: &nbsp; <img src="/yes.png" class="monitor-wan" alt="yes" />\n'
         if lan != last_lan_html:
           debug("LANscan scanner is now responding.")
+        last_lan_json = True
       except:
+        last_lan_json = False
         snapshot = ''
         snapshot_json = {}
         lan = '     LAN: &nbsp;<img src="/no.png" class="monitor-wan" alt="no" />\n'
@@ -252,6 +265,7 @@ class LanThread(threading.Thread):
 
         # Now generate the LAN scan portion of the web page
         rows = {}
+        rows_json = {}
         for mac in db.keys():
           node = db[mac]
 
@@ -307,8 +321,18 @@ class LanThread(threading.Thread):
             '         <td class="' + row_type + '">' + info + '</td>\n' + \
             '       </tr>\n' + \
             ''
+          rows_json[ip] = { \
+            'type':row_type[len(LanThread.m_prefix):], \
+            'most_recent':('' == most_recent_flag), \
+            'first':first, \
+            'last':last, \
+            'ip':ip, \
+            'mac':mac, \
+            'ports':(node['ports'].split(',')), \
+            'info':info \
+            }
 
-        # Sort these "rows" by their IPv4 addresses
+        # Sort the HTML table "rows" by their IPv4 addresses
         ip_keys = sorted(rows.keys(), key=lambda k: LanThread.numeric_ip(k))
         out = ""
         for ip_key in ip_keys:
@@ -330,22 +354,32 @@ class LanThread(threading.Thread):
           '     </table>\n'
 
         # Update the global HTML string that the web server serves
+        global last_machines_json
         global last_machines_html
         last_machines_html = table
+        last_machines_json = rows_json
 
         # Compute uptime, and last update time
         since_start = datetime.datetime.now() - startup_time
         up = LanThread.format_seconds(since_start.total_seconds(), False)
         global last_update_time
         since_last = (datetime.datetime.now() - last_update_time).total_seconds()
+        when_utc = Util.now_str()
         if last_update_time == startup_time:
           updated = ' (starting up... please be patient...)'
+          updated_json = "starting"
         else:
           since_last_str = LanThread.format_seconds(since_last, False)
-          updated = ' (last updated ' + since_last_str + ' ago, at ' + Util.now_str() + ', UTC)'
+          updated = ' (last updated ' + since_last_str + ' ago, at ' + when_utc + ', UTC)'
+          updated_json = since_last_str
+        time_utc_json = when_utc
 
         # Update the global HTML string that the web server serves
+        global last_updated_json
+        global last_count_json
         global last_updated_html
+        last_count_json = len(db.keys())
+        last_updated_json = {"when_ago":updated_json,"utc":time_utc_json}
         last_updated_html = \
           '   <p>&nbsp;' + str(len(db.keys())) + ' hosts are on this network.</p>\n' + \
           '   <p>&nbsp;Up: ' + str(up) + updated + '</p>\n'
@@ -361,6 +395,7 @@ class LanThread(threading.Thread):
 # Loop forever checking WAN connectivity and constructing the HTML div
 class WanThread(threading.Thread):
   def run(self):
+    global last_wan_json
     global last_wan_html
     debug("WAN monitor thread started!")
     WAN_COMMAND = 'curl -sS https://google.com 2>/dev/null | wc -l'
@@ -372,8 +407,10 @@ class WanThread(threading.Thread):
         wan = '     WAN: &nbsp; <img src="/yes.png" class="monitor-wan" alt="yes" />\n'
       if wan != last_wan_html:
         if (yes_no != "0"):
+          last_wan_json = True
           debug("WAN is now connected.")
         else:
+          last_wan_json = False
           debug("WAN is now DISCONNECTED!")
       last_wan_html = wan
       debug("WAN monitor thread is sleeping for " + str(REFRESH_WAN_MSEC / 1000.0) + " seconds...")
@@ -406,6 +443,18 @@ def get_no_png():
 
 @webapp.route("/json")
 def get_json():
+  j = {}
+  j['status'] = {}
+  j['status']['lanscan'] = last_lan_json
+  j['status']['portscan'] = last_ports_json
+  j['status']['wan'] = last_wan_json
+  j['status']['host_count'] = last_count_json
+  j['status']['updated'] = last_updated_json
+  j['machines'] = last_machines_json
+  return (json.dumps(j) + '\n').encode('UTF-8')
+
+@webapp.route("/jsonhtml")
+def get_json_html():
   j = {}
   j['last_wan'] = last_wan_html
   j['last_lan'] = last_lan_html

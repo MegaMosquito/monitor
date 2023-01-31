@@ -18,11 +18,6 @@ VERSION      := 1.0.0
 # values provided here in the Makefile.
 # *****************************************************************************
 
-# Where will HTTP requests be served (e.g., port 80 on all host interfaces)?
-MY_HOST_BIND_ADDRESS   ?=0.0.0.0
-MY_HOST_BIND_PORT      ?=80
-MY_CONTAINER_BIND_PORT ?=80
-
 # URLs must be provided for the lanscan and portscan REST API services
 MY_LANSCAN_URL         ?=http://lanscan.local/lanscan/json
 MY_PORTSCAN_URL_BASE   ?=http://portscan.local/portscan
@@ -30,6 +25,11 @@ MY_PORTSCAN_URL_BASE   ?=http://portscan.local/portscan
 # If the DHCP range of your LAN is specified, it will be used (0 means ignore)
 MY_DHCP_RANGE_START    ?=0
 MY_DHCP_RANGE_END      ?=0
+
+# Where will HTTP requests be served (e.g., port 80 on all host interfaces)?
+MY_HOST_BIND_ADDRESS   ?=0.0.0.0
+MY_HOST_BIND_PORT      ?=80
+MY_CONTAINER_BIND_PORT ?=80
 
 # Running `make` with no target builds and runs this as a restarting daemon
 default: build run

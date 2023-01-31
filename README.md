@@ -13,6 +13,8 @@ The first set of variables must be provided. The default values are the recommen
 - **MY_LANSCAN_URL** (default: **http://lanscan.local/lanscan/json**)
 - **MY_PORTSCAN_URL_BASE** (default: **http://portscan.local/portscan**)
 
+Another option, which I use in a couple of subnets in my home is to run the lanscan tool **on the same host as the monitor**. In one of these subnets I actually use just a tiny Raspberry Pi Zero W as the host for both of these tools and it handles this easily. On the subnets I don't run the port scanner at all so it shows a big red "X" for ports at the top of the web page on those subnets.
+
 If you wish to have the monitor distinguish between statically addressed hosts and those that are given random IP numbers by your DHCP server, then you will need to tell the monitor the DHCP address range your DHCP server uses. Otherwise just leave these variables both set to their default values of 0.
 
 - **MY_DHCP_RANGE_START** (default: **0**)
@@ -97,7 +99,97 @@ Typical MAC addresses are given by network interface manufacturers, are globally
 
 The monitor also monitors the WAN connection (by checking connectivity to Google) and shows this status in the WAN checkbox at the top of the page. Beside that are status checkboxes for the requires **lanscan** and **portscan** services. And finally there is a checkbox for the underlying monitor web UI service that provides the data shown on the web page (Javascript code inside the web page HTML polls the monitor service reqularly to update the table and it also updates this last checkbox.
 
-The monitor also provides some statustics at the bottom of the page.
+The monitor also provides some statistics at the bottom of the web page.
+
+The monitor also offers its own JSON REST API. You can send an HTTP "GET" request to the "/json" URL on the monitor to get all of the monitor data in a JSON-encoded form. E.g., here is the (heavily edited, because it is huge) output from this API on my network:
+
+```
+{
+  "status": {
+    "lanscan": true,
+    "portscan": true,
+    "wan": true,
+    "host_count": 70,
+    "updated": {
+      "when_ago": "12 secs",
+      "utc": "2023-01-31 02:22:19"
+    }
+  },
+  "machines": {
+    "192.168.123.1": {
+      "type": "infra",
+      "most_recent": false,
+      "first": "4 mins",
+      "last": "13 secs",
+      "ip": "192.168.123.1",
+      "mac": "3C:37:86:5E:EC:37",
+      "ports": [
+        "[53",
+        "80",
+        "443",
+        "5000",
+        "5555",
+        "8200",
+        "12973",
+        "12974",
+        "56688]"
+      ],
+      "info": "Gateway"
+    },
+...
+    "192.168.123.122": {
+      "type": "infra",
+      "most_recent": true,
+      "first": "16 secs",
+      "last": "16 secs",
+      "ip": "192.168.123.122",
+      "mac": "00:17:88:60:17:69",
+      "ports": [
+        "[80",
+        "443",
+        "8080]"
+      ],
+      "info": "Phillips Hue Lighting Hub"
+    },
+...
+    "192.168.123.124": {
+      "type": "other",
+      "most_recent": true,
+      "first": "16 secs",
+      "last": "16 secs",
+      "ip": "192.168.123.124",
+      "mac": "FC:E9:D8:F2:04:1C",
+      "ports": [
+        "[3500",
+        "3600",
+        "6000",
+        "8008",
+        "8009",
+        "8010",
+        "9080",
+        "55442",
+        "55443",
+        "60000]"
+      ],
+      "info": "Fire TV Cube (wired) Family Rm"
+    },
+...
+    "192.168.123.140": {
+      "type": "other",
+      "most_recent": true,
+      "first": "16 secs",
+      "last": "16 secs",
+      "ip": "192.168.123.140",
+      "mac": "50:C7:BF:3F:D9:D8",
+      "ports": [
+        "[9999]"
+      ],
+      "info": "TPLink HS105 (Kasa Smart Plug)"
+    },
+...
+  }
+}
+```
 
 ## Author
 
