@@ -35,7 +35,8 @@
    <div class="indent">
      <table class="legend-table">
        <tr class="legend-row"><td><input type="checkbox" class="legend-checkbox" onclick="checkbox(this)" id="unknown"/></td><td class="machine-unknown">&nbsp;Unrecognized MAC Address&nbsp;</td></tr>
-       <tr class="legend-row"><td><input type="checkbox" class="legend-checkbox" onclick="checkbox(this)" id="infra"/></td><td class="machine-infra">&nbsp;Infrastructure Machine&nbsp;</td></tr>
+       <tr class="legend-row"><td><input type="checkbox" class="legend-checkbox" onclick="checkbox(this)" id="infra-off"/></td><td class="machine-infra-off">&nbsp;Offline Infrastructure Machine&nbsp;</td></tr>
+       <tr class="legend-row"><td><input type="checkbox" class="legend-checkbox" onclick="checkbox(this)" id="infra-on"/></td><td class="machine-infra-on">&nbsp;Online Infrastructure Machine&nbsp;</td></tr>
        <tr class="legend-row"><td><input type="checkbox" class="legend-checkbox" onclick="checkbox(this)" id="static"/></td><td class="machine-static">&nbsp;Static (non-infra)&nbsp;</td></tr>
        <tr class="legend-row"><td><input type="checkbox" class="legend-checkbox" onclick="checkbox(this)" id="other"/></td><td class="machine-other">&nbsp;Other (known)&nbsp;</td></tr>
        <tr class="legend-row"><td><input type="checkbox" class="legend-checkbox" onclick="checkbox(this)" id="local"/></td><td class="machine-local">&nbsp;Locally Administered Address&nbsp;</td></tr>
@@ -90,10 +91,11 @@
      window.onload = function() {
        // Initial selections (which types to show initially)
        document.getElementById("unknown").checked = true;
-       document.getElementById("local").checked = false;
-       document.getElementById("infra").checked = true;
+       document.getElementById("infra-off").checked = true;
+       document.getElementById("infra-on").checked = false;
        document.getElementById("static").checked = false;
        document.getElementById("other").checked = false;
+       document.getElementById("local").checked = false;
        // Need to pass these DOM items into the function (can't get them inside)
        var d_wan = document.getElementById("d_wan");
        var d_machines = document.getElementById("d_machines");

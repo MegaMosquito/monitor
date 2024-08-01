@@ -15,6 +15,7 @@ import sys
 import random
 import subprocess
 import threading
+import socket
 import datetime
 import time
 
@@ -67,6 +68,7 @@ def debug(str):
 
 # Globals for the cached data
 known_hosts = {}
+infra_hosts = {}
 # Saved time markers
 startup_time = datetime.datetime.now()
 last_update_time = startup_time
@@ -129,7 +131,8 @@ class LanThread(threading.Thread):
   m_static = m_prefix + "static"
   m_unknown = m_prefix + "unknown"
   m_laa = m_prefix + "local"
-  m_infra = m_prefix + "infra"
+  m_infra_online = m_prefix + "infra-on"
+  m_infra_offline = m_prefix + "infra-off"
 
   @classmethod
   def is_locally_administered_mac(cls, mac):
@@ -137,6 +140,11 @@ class LanThread(threading.Thread):
     hex = int(hex_str, base=16)
     bit = (hex & 2) == 2
     return bit
+
+  @classmethod
+  def string_first_3_octets(cls, k):
+    o = k.split('.')
+    return '.'.join(o[:3])
 
   @classmethod
   def numeric_last_octet(cls, k):
@@ -176,7 +184,8 @@ class LanThread(threading.Thread):
 
     global last_lan_json
     global last_lan_html
-    db = {}
+    db = infra_hosts
+    base = 255
     debug("LAN monitor thread started!")
     while True:
 
@@ -219,6 +228,8 @@ class LanThread(threading.Thread):
               #debug('INFO: MAC %s has changed IPv4 from %s to %s!' % (mac, node['ip'], ip))
               node['ip'] = ip
             node['last_seen'] = when
+            if not ('first_seen' in node):
+              node['first_seen'] = when
 
           # Unseen (MAC is not yet in the DB)
           else:
@@ -238,30 +249,35 @@ class LanThread(threading.Thread):
             #debug('INFO: Adding new node %s.' % str(node))
             db[mac] = node
 
+          node['online'] = True
+
         # Find the most recent arrival(s) so they cn be highlighted
         most_recent_seconds = LONG_AGO_SEC
         most_recent_mac = ''
         for mac in db.keys():
           node = db[mac]
-          first_seen = node['first_seen']
-          first_seen_how_long_ago_seconds = Util.seconds_since(first_seen)
-          if first_seen_how_long_ago_seconds < most_recent_seconds:
-            most_recent_seconds = first_seen_how_long_ago_seconds
-            most_recent_mac = mac
+          if 'first_seen' in node:
+            first_seen = node['first_seen']
+            first_seen_how_long_ago_seconds = Util.seconds_since(first_seen)
+            if first_seen_how_long_ago_seconds < most_recent_seconds:
+              most_recent_seconds = first_seen_how_long_ago_seconds
+              most_recent_mac = mac
         debug("Latest node %s arrived %d seconds ago." % \
           (most_recent_mac, most_recent_seconds))
 
-        # Discard any old entries that have not been seen for a long time
-        global portscan_targets
+        # Discard any old non-infra DB entries not seen for a long time
         for mac in db.keys():
           node = db[mac]
-          last_seen = node['last_seen']
-          last_seen_how_long_ago_seconds = Util.seconds_since(last_seen)
-          if last_seen_how_long_ago_seconds > DISCARD_AFTER_SEC:
-            debug('INFO: Discarding node with mac %s from the database.' % mac)
-            del db[mac]
-          else:
-            add_ports(db, mac)
+          if not (node['infra']):
+            last_seen = node['last_seen']
+            last_seen_how_long_ago_seconds = Util.seconds_since(last_seen)
+            if last_seen_how_long_ago_seconds > DISCARD_AFTER_SEC:
+              debug('INFO: Discarding node with mac %s from database.' % mac)
+              del db[mac]
+
+        # Set up port scanning
+        for mac in db.keys():
+          add_ports(db, mac)
 
         # Now generate the LAN scan portion of the web page
         rows = {}
@@ -272,17 +288,24 @@ class LanThread(threading.Thread):
           #debug('INFO: Processing node %s.' % str(node))
           ip = node['ip']
           known = node['known']
+          online = node['online']
           info = node['info']
           octet = node['octet']
           infra = node['infra']
-          first_seen = node['first_seen']
-          last_seen = node['last_seen']
 
           # Create human-radable time expressions for first/last seen times
-          first_seen_how_long_ago_seconds = Util.seconds_since(first_seen)
-          first = LanThread.format_seconds(first_seen_how_long_ago_seconds)
-          last_seen_how_long_ago_seconds = Util.seconds_since(last_seen)
-          last = LanThread.format_seconds(last_seen_how_long_ago_seconds)
+          if 'first_seen' in node:
+            first_seen = node['first_seen']
+            first_seen_how_long_ago_seconds = Util.seconds_since(first_seen)
+            first = LanThread.format_seconds(first_seen_how_long_ago_seconds)
+          else:
+            first = '(???)'
+          if 'last_seen' in node:
+            last_seen = node['last_seen']
+            last_seen_how_long_ago_seconds = Util.seconds_since(last_seen)
+            last = LanThread.format_seconds(last_seen_how_long_ago_seconds)
+          else:
+            last = '(???)'
 
           # Mark the most recently seen node
           most_recent_flag = ''
@@ -306,16 +329,30 @@ class LanThread(threading.Thread):
             row_type = LanThread.m_unknown
             if LanThread.is_locally_administered_mac(mac):
               row_type = LanThread.m_laa
-          elif infra:
-            row_type = LanThread.m_infra
+          elif infra and online:
+            row_type = LanThread.m_infra_online
+          elif infra and not online:
+            row_type = LanThread.m_infra_offline
           elif static:
             row_type = LanThread.m_static
+
+          # Octets of 255 are catch-alls for offline nodes. Handle this...
+          ip_str = ip
+          last_octet = LanThread.numeric_last_octet(ip)
+          first3 = LanThread.string_first_3_octets(ip)
+          if 255 == last_octet:
+            ip_str = '???.???.???.???'
+            ip = '255.255.255.' + str(base)
+            base += 1
+          elif '255.255.255' == first3:
+            ip_str = '???.???.???.' + str(last_octet)
+
           rows[ip] = \
             '       <tr class="ROW-' + row_type + '">\n' + \
             '         <td> ' + most_recent_flag + ' </td>\n' + \
             '         <td class="' + row_type + '">' + first + '</td>\n' + \
             '         <td class="' + row_type + '">' + last + '</td>\n' + \
-            '         <td class="' + row_type + '">' + ip + '</td>\n' + \
+            '         <td class="' + row_type + '">' + ip_str + '</td>\n' + \
             '         <td class="' + row_type + '">' + mac + '</td>\n' + \
             '         <td class="' + row_type + '">' + port_html + '</td>\n' + \
             '         <td class="' + row_type + '">' + info + '</td>\n' + \
@@ -323,10 +360,10 @@ class LanThread(threading.Thread):
             ''
           rows_json[ip] = { \
             'type':row_type[len(LanThread.m_prefix):], \
-            'most_recent':('' == most_recent_flag), \
+            'most_recent':('' != most_recent_flag), \
             'first':first, \
             'last':last, \
-            'ip':ip, \
+            'ip':ip_str, \
             'mac':mac, \
             'ports':(node['ports'].split(',')), \
             'info':info \
@@ -401,7 +438,7 @@ class WanThread(threading.Thread):
     WAN_COMMAND = 'curl -sS https://google.com 2>/dev/null | wc -l'
     while True:
       yes_no = str(subprocess.check_output(WAN_COMMAND, shell=True)).strip()
-      # debug("  WAN check = " + yes_no)
+      #debug("  WAN check = " + yes_no)
       wan = '     WAN: &nbsp;<img src="/no.png" class="monitor-wan" alt="no" />\n'
       if (yes_no != "0"):
         wan = '     WAN: &nbsp; <img src="/yes.png" class="monitor-wan" alt="yes" />\n'
@@ -492,11 +529,18 @@ def add_header(r):
 # Main program (instantiates and starts polling thread and then web server)
 if __name__ == '__main__':
 
-  # Populate the known_hosts dictionary from the list provided
+  # Populate the known_hosts and infra_hosts dictionaries from "known_hosts.py"
   for host in KnownHosts:
     # Force uppercase for all MACs
     mac = host['mac'].upper()
+    host['known'] = True
+    host['online'] = False
     known_hosts[mac] = host
+    if 'infra' in host and host['infra']:
+      if not ('octet' in host):
+        host['octet'] = 255
+      host['ip'] = '255.255.255.' + str(host['octet'])
+      infra_hosts[mac] = host
 
   # Start the thread that repeatedly calls lanscan for snapshots of the LAN
   lanmon = LanThread()

@@ -88,7 +88,11 @@ code {
   background-color: #CCFFFF;
 }
 
-.machine-infra {
+.machine-infra-on {
+  background-color: #CCFFCC;
+}
+
+.machine-infra-off {
   background-color: #FFFFCC;
 }
 
